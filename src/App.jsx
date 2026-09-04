@@ -854,7 +854,8 @@ export default function Shop() {
             </div>
             <div>
               <div style={{ fontSize: 11, color: T.dim, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Телефон</div>
-              <div style={{ fontSize: 16 }}>+7 950 960-39-35</div>
+              <div style={{ fontSize: 16 }}>+7 950 960-38-73</div>
+              <div style={{ fontSize: 14, color: T.dim, marginTop: 4 }}>+7 950 960-39-35 (доп. номер)</div>
             </div>
           </div>
         </div>
@@ -930,7 +931,7 @@ export default function Shop() {
               <div style={{ color: T.text, fontWeight: 600, marginBottom: 6 }}>6. Контакты</div>
               <p>
                 По всем вопросам, связанным с заказом, оплатой, доставкой и возвратом, Покупатель может обратиться
-                по телефону +7 950 960-39-35. Реквизиты Продавца указаны на{" "}
+                по телефону +7 950 960-38-73 или +7 950 960-39-35. Реквизиты Продавца указаны на{" "}
                 <span className="st-navlink" onClick={() => setPage("requisites")} style={{ color: T.orange, textDecoration: "underline" }}>
                   странице «Реквизиты»
                 </span>.

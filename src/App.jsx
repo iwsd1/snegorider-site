@@ -52,7 +52,7 @@ async function sendOrderByEmail(order) {
 /* ============ Telegram-уведомления о заказах ============ */
 /* Вставьте сюда токен и chat_id, которые получили от @BotFather и через getUpdates */
 const TELEGRAM_BOT_TOKEN = "8874868661:AAHmmn_Z34zyqswuqAkEw_P7mmOFgN0UU0Q";
-const TELEGRAM_CHAT_ID = "116964500";
+const TELEGRAM_CHAT_ID = "1169645005";
 
 async function sendOrderToTelegram(order) {
   if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN === "ВАШ_ТОКЕН_СЮДА") return;

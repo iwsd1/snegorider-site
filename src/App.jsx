@@ -910,4 +910,3 @@ export default function Shop() {
     </div>
   );
 }
-add telegram order notifications

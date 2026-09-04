@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 /* ============ Design tokens ============ */
 const T = {
@@ -14,6 +15,13 @@ const T = {
 };
 
 const LOGO_URI = "data:image/jpeg;base64,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";
+
+/* ============ Supabase (личный кабинет: регистрация, вход, история заказов) ============ */
+/* Вставьте сюда Project URL и anon public key из Project Settings → API в Supabase */
+const SUPABASE_URL = "https://gfamwjotufuqhusivqrg.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_6tAfH3KajcHU8FATqswLZQ_3-tWPb8T";
+const supabaseEnabled = SUPABASE_URL && SUPABASE_URL !== "ВАШ_SUPABASE_URL_СЮДА";
+const supabase = supabaseEnabled ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 /* ============ Email-уведомления о заказах (через EmailJS) ============ */
 /* Вставьте сюда Service ID, Template ID и Public Key из личного кабинета emailjs.com */
@@ -331,6 +339,56 @@ export default function Shop() {
   const [flash, setFlash] = useState(null);
   const [orderForm, setOrderForm] = useState({ name: "", phone: "", address: "" });
 
+  /* ===== Личный кабинет (Supabase auth) ===== */
+  const [user, setUser] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState("login"); // login | signup
+  const [authForm, setAuthForm] = useState({ email: "", password: "" });
+  const [authError, setAuthError] = useState("");
+  const [myOrders, setMyOrders] = useState([]);
+
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    supabase.auth.getSession().then(({ data }) => setUser(data.session ? data.session.user : null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session ? session.user : null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!supabaseEnabled || !user) { setMyOrders([]); return; }
+    supabase
+      .from("orders")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => { if (!error && data) setMyOrders(data); });
+  }, [user, page]);
+
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    if (!supabaseEnabled) { setAuthError("Личный кабинет ещё не подключён."); return; }
+    const { email, password } = authForm;
+    const result =
+      authMode === "login"
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({ email, password });
+    if (result.error) {
+      setAuthError(result.error.message);
+    } else {
+      setAuthOpen(false);
+      setAuthForm({ email: "", password: "" });
+    }
+  };
+
+  const handleLogout = async () => {
+    if (supabaseEnabled) await supabase.auth.signOut();
+    setUser(null);
+    setPage("home");
+  };
+
   const filtered = useMemo(() => {
     return PRODUCTS.filter((p) => {
       if (catFilter !== "all" && p.category !== catFilter) return false;
@@ -420,12 +478,23 @@ export default function Shop() {
           </div>
         )}
 
-        <button
-          className="st-btn"
-          style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "9px 16px", fontSize: 14 }}
-        >
-          Войти
-        </button>
+        {user ? (
+          <button
+            className="st-btn"
+            onClick={() => setPage("account")}
+            style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "9px 16px", fontSize: 14 }}
+          >
+            {user.email}
+          </button>
+        ) : (
+          <button
+            className="st-btn"
+            onClick={() => { setAuthOpen(true); setAuthMode("login"); setAuthError(""); }}
+            style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "9px 16px", fontSize: 14 }}
+          >
+            Войти
+          </button>
+        )}
 
         <button
           className="st-btn"
@@ -745,6 +814,55 @@ export default function Shop() {
         </div>
       )}
 
+      {page === "account" && (
+        /* ===== Личный кабинет ===== */
+        <div style={{ maxWidth: 780, margin: "0 auto", padding: "56px 24px" }}>
+          {!user ? (
+            <div style={{ color: T.dim, fontSize: 15 }}>
+              Чтобы посмотреть личный кабинет, сначала войдите —{" "}
+              <span className="st-navlink" onClick={() => setAuthOpen(true)} style={{ color: T.orange, textDecoration: "underline" }}>
+                нажмите здесь
+              </span>.
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+                <div>
+                  <div style={{ color: T.orange, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Личный кабинет</div>
+                  <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(22px, 3vw, 30px)", fontWeight: 700, margin: 0 }}>{user.email}</h1>
+                </div>
+                <button className="st-btn" onClick={handleLogout} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "9px 16px", fontSize: 14 }}>
+                  Выйти
+                </button>
+              </div>
+
+              <div style={{ fontSize: 14, color: T.dim, marginBottom: 14 }}>Мои заказы</div>
+              {myOrders.length === 0 ? (
+                <div style={{ border: `1px dashed ${T.border}`, background: T.panel, padding: 24, color: T.dim, fontSize: 14 }}>
+                  Пока нет заказов — оформите первый в каталоге.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {myOrders.map((o) => (
+                    <div key={o.id} style={{ border: `1px solid ${T.border}`, background: T.panel, padding: 16 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.dim, marginBottom: 8 }}>
+                        <span>{new Date(o.created_at).toLocaleString("ru-RU")}</span>
+                        <span style={{ fontFamily: "'Oswald',sans-serif", fontWeight: 600, color: T.text }}>{rub(o.total)}</span>
+                      </div>
+                      <div style={{ fontSize: 13.5, color: T.text, lineHeight: 1.6 }}>
+                        {(o.items || []).map((it, idx) => (
+                          <div key={idx}>{it.name} × {it.qty}</div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* ===== Footer ===== */}
       <footer style={{ borderTop: `1px solid ${T.border}`, padding: "28px 24px", color: T.dim, fontSize: 13, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -753,6 +871,72 @@ export default function Shop() {
         </div>
         <div>Доставка по России · Самовывоз со склада</div>
       </footer>
+
+      {/* ===== Auth modal (вход / регистрация) ===== */}
+      {authOpen && (
+        <>
+          <div onClick={() => setAuthOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 42 }} />
+          <div
+            style={{
+              position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+              width: "min(380px, 92vw)", background: T.panel, border: `1px solid ${T.border}`, zIndex: 43, padding: 24,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 18, fontWeight: 600 }}>
+                {authMode === "login" ? "Вход" : "Регистрация"}
+              </div>
+              <button className="st-btn" onClick={() => setAuthOpen(false)} style={{ background: "transparent", color: T.dim, fontSize: 20, padding: 4 }}>{"\u2715"}</button>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <label style={{ fontSize: 12, color: T.dim }}>Email
+                <input
+                  required
+                  type="email"
+                  className="st-input"
+                  value={authForm.email}
+                  onChange={(e) => setAuthForm((f) => ({ ...f, email: e.target.value }))}
+                  style={{ width: "100%", marginTop: 4, background: T.panel2, border: `1px solid ${T.border}`, color: T.text, padding: "9px 10px" }}
+                />
+              </label>
+              <label style={{ fontSize: 12, color: T.dim }}>Пароль
+                <input
+                  required
+                  type="password"
+                  minLength={6}
+                  className="st-input"
+                  value={authForm.password}
+                  onChange={(e) => setAuthForm((f) => ({ ...f, password: e.target.value }))}
+                  style={{ width: "100%", marginTop: 4, background: T.panel2, border: `1px solid ${T.border}`, color: T.text, padding: "9px 10px" }}
+                />
+              </label>
+
+              {authError && <div style={{ color: T.orange, fontSize: 13 }}>{authError}</div>}
+
+              <button type="submit" className="st-btn" style={{ background: T.orange, color: T.bg, padding: "11px", fontWeight: 600, fontSize: 14, marginTop: 4 }}>
+                {authMode === "login" ? "Войти" : "Зарегистрироваться"}
+              </button>
+            </form>
+
+            <div style={{ marginTop: 14, fontSize: 13, color: T.dim, textAlign: "center" }}>
+              {authMode === "login" ? (
+                <>Нет аккаунта?{" "}
+                  <span className="st-navlink" onClick={() => { setAuthMode("signup"); setAuthError(""); }} style={{ color: T.orange, textDecoration: "underline" }}>
+                    Зарегистрироваться
+                  </span>
+                </>
+              ) : (
+                <>Уже есть аккаунт?{" "}
+                  <span className="st-navlink" onClick={() => { setAuthMode("login"); setAuthError(""); }} style={{ color: T.orange, textDecoration: "underline" }}>
+                    Войти
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ===== Product detail modal ===== */}
       {detailId !== null && (() => {
@@ -843,6 +1027,16 @@ export default function Shop() {
                     };
                     sendOrderByEmail(orderData);
                     sendOrderToTelegram(orderData);
+                    if (supabaseEnabled && user) {
+                      supabase.from("orders").insert({
+                        user_id: user.id,
+                        name: orderData.name,
+                        phone: orderData.phone,
+                        address: orderData.address,
+                        items: orderData.items.map((it) => ({ name: it.name, qty: it.qty, price: it.price })),
+                        total: orderData.total,
+                      });
+                    }
                     setCheckoutStep("done");
                     setCart({});
                   }}

@@ -343,7 +343,7 @@ export default function Shop() {
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login"); // login | signup
-  const [authForm, setAuthForm] = useState({ email: "", password: "" });
+  const [authForm, setAuthForm] = useState({ email: "", password: "", name: "", phone: "" });
   const [authError, setAuthError] = useState("");
   const [myOrders, setMyOrders] = useState([]);
 
@@ -370,16 +370,16 @@ export default function Shop() {
     e.preventDefault();
     setAuthError("");
     if (!supabaseEnabled) { setAuthError("Личный кабинет ещё не подключён."); return; }
-    const { email, password } = authForm;
+    const { email, password, name, phone } = authForm;
     const result =
       authMode === "login"
         ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
+        : await supabase.auth.signUp({ email, password, options: { data: { full_name: name, phone } } });
     if (result.error) {
       setAuthError(result.error.message);
     } else {
       setAuthOpen(false);
-      setAuthForm({ email: "", password: "" });
+      setAuthForm({ email: "", password: "", name: "", phone: "" });
     }
   };
 
@@ -482,9 +482,18 @@ export default function Shop() {
           <button
             className="st-btn"
             onClick={() => setPage("account")}
-            style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "9px 16px", fontSize: 14 }}
+            style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "6px 16px 6px 6px", fontSize: 14, display: "flex", alignItems: "center", gap: 10 }}
           >
-            {user.email}
+            <span
+              style={{
+                width: 30, height: 30, borderRadius: "50%", background: T.orange, color: T.bg,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: 14, flexShrink: 0,
+              }}
+            >
+              {((user.user_metadata && user.user_metadata.full_name) || user.email).charAt(0).toUpperCase()}
+            </span>
+            {(user.user_metadata && user.user_metadata.full_name) || user.email}
           </button>
         ) : (
           <button
@@ -827,13 +836,41 @@ export default function Shop() {
           ) : (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-                <div>
-                  <div style={{ color: T.orange, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Личный кабинет</div>
-                  <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(22px, 3vw, 30px)", fontWeight: 700, margin: 0 }}>{user.email}</h1>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <span
+                    style={{
+                      width: 54, height: 54, borderRadius: "50%", background: T.orange, color: T.bg,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: 22, flexShrink: 0,
+                    }}
+                  >
+                    {((user.user_metadata && user.user_metadata.full_name) || user.email).charAt(0).toUpperCase()}
+                  </span>
+                  <div>
+                    <div style={{ color: T.orange, fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Личный кабинет</div>
+                    <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 700, margin: 0 }}>
+                      {(user.user_metadata && user.user_metadata.full_name) || "Без имени"}
+                    </h1>
+                  </div>
                 </div>
                 <button className="st-btn" onClick={handleLogout} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "9px 16px", fontSize: 14 }}>
                   Выйти
                 </button>
+              </div>
+
+              <div style={{ border: `1px solid ${T.border}`, background: T.panel, padding: 20, marginBottom: 28, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: T.dim, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Имя</div>
+                  <div style={{ fontSize: 14.5 }}>{(user.user_metadata && user.user_metadata.full_name) || "—"}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: T.dim, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Телефон</div>
+                  <div style={{ fontSize: 14.5 }}>{(user.user_metadata && user.user_metadata.phone) || "—"}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: T.dim, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Email</div>
+                  <div style={{ fontSize: 14.5 }}>{user.email}</div>
+                </div>
               </div>
 
               <div style={{ fontSize: 14, color: T.dim, marginBottom: 14 }}>Мои заказы</div>
@@ -890,6 +927,28 @@ export default function Shop() {
             </div>
 
             <form onSubmit={handleAuthSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {authMode === "signup" && (
+                <>
+                  <label style={{ fontSize: 12, color: T.dim }}>Имя
+                    <input
+                      required
+                      className="st-input"
+                      value={authForm.name}
+                      onChange={(e) => setAuthForm((f) => ({ ...f, name: e.target.value }))}
+                      style={{ width: "100%", marginTop: 4, background: T.panel2, border: `1px solid ${T.border}`, color: T.text, padding: "9px 10px" }}
+                    />
+                  </label>
+                  <label style={{ fontSize: 12, color: T.dim }}>Телефон
+                    <input
+                      required
+                      className="st-input"
+                      value={authForm.phone}
+                      onChange={(e) => setAuthForm((f) => ({ ...f, phone: e.target.value }))}
+                      style={{ width: "100%", marginTop: 4, background: T.panel2, border: `1px solid ${T.border}`, color: T.text, padding: "9px 10px" }}
+                    />
+                  </label>
+                </>
+              )}
               <label style={{ fontSize: 12, color: T.dim }}>Email
                 <input
                   required

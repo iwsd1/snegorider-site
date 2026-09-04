@@ -366,6 +366,15 @@ export default function Shop() {
       .then(({ data, error }) => { if (!error && data) setMyOrders(data); });
   }, [user, page]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "success") {
+      setCartOpen(true);
+      setCheckoutStep("paid");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -823,6 +832,34 @@ export default function Shop() {
         </div>
       )}
 
+      {page === "requisites" && (
+        /* ===== Реквизиты (обязательная страница для приёма онлайн-оплаты) ===== */
+        <div style={{ maxWidth: 780, margin: "0 auto", padding: "56px 24px" }}>
+          <div style={{ color: T.orange, fontSize: 13, fontWeight: 600, marginBottom: 10 }}>SnegoRider</div>
+          <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(24px, 3vw, 32px)", lineHeight: 1.15, margin: "0 0 24px", fontWeight: 700 }}>
+            Реквизиты
+          </h1>
+          <div style={{ border: `1px solid ${T.border}`, background: T.panel, padding: 28, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, color: T.dim, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Индивидуальный предприниматель</div>
+              <div style={{ fontSize: 16 }}>Мурашко Сергей Викторович</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: T.dim, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>ИНН</div>
+              <div style={{ fontSize: 16 }}>190304921123</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: T.dim, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>ОГРНИП</div>
+              <div style={{ fontSize: 16 }}>317190100016499</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: T.dim, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Телефон</div>
+              <div style={{ fontSize: 16 }}>+7 950 960-39-35</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {page === "account" && (
         /* ===== Личный кабинет ===== */
         <div style={{ maxWidth: 780, margin: "0 auto", padding: "56px 24px" }}>
@@ -906,7 +943,12 @@ export default function Shop() {
           <img src={LOGO_URI} alt="SnegoRider" style={{ height: 22, width: 22, borderRadius: "50%", objectFit: "cover" }} />
           © SnegoRider — запчасти и экипировка для снегоходов и мотоциклов
         </div>
-        <div>Доставка по России · Самовывоз со склада</div>
+        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          <span>Доставка по России · Самовывоз со склада</span>
+          <span className="st-navlink" onClick={() => setPage("requisites")} style={{ textDecoration: "underline" }}>
+            Реквизиты
+          </span>
+        </div>
       </footer>
 
       {/* ===== Auth modal (вход / регистрация) ===== */}
@@ -1045,6 +1087,7 @@ export default function Shop() {
                 {checkoutStep === "cart" && "Корзина"}
                 {checkoutStep === "form" && "Оформление заказа"}
                 {checkoutStep === "done" && "Заказ принят"}
+                {checkoutStep === "paid" && "Оплата прошла"}
               </div>
               <button className="st-btn" onClick={() => setCartOpen(false)} style={{ background: "transparent", color: T.dim, fontSize: 20, padding: 4 }}>{"\u2715"}</button>
             </div>
@@ -1075,7 +1118,7 @@ export default function Shop() {
 
               {checkoutStep === "form" && (
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     const orderData = {
                       name: orderForm.name,
@@ -1096,8 +1139,29 @@ export default function Shop() {
                         total: orderData.total,
                       });
                     }
-                    setCheckoutStep("done");
                     setCart({});
+
+                    // Пытаемся создать платёж в ЮKassa. Если она ещё не настроена
+                    // (нет переменных окружения на Vercel) — просто показываем "Спасибо за заказ".
+                    try {
+                      const resp = await fetch("/api/create-payment", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          amount: orderData.total,
+                          description: `Заказ SnegoRider — ${orderData.items.length} товар(ов)`,
+                          returnUrl: window.location.origin + window.location.pathname + "?payment=success",
+                        }),
+                      });
+                      const data = await resp.json();
+                      if (resp.ok && data.confirmationUrl) {
+                        window.location.href = data.confirmationUrl;
+                        return;
+                      }
+                    } catch (err) {
+                      console.error("Оплата пока недоступна", err);
+                    }
+                    setCheckoutStep("done");
                   }}
                   style={{ display: "flex", flexDirection: "column", gap: 12 }}
                 >
@@ -1142,6 +1206,14 @@ export default function Shop() {
                   <div style={{ fontSize: 40, marginBottom: 12 }}>{"\u2713"}</div>
                   <div style={{ fontSize: 15, marginBottom: 8 }}>Спасибо за заказ!</div>
                   <div style={{ color: T.dim, fontSize: 13, lineHeight: 1.5 }}>Мы свяжемся с вами в течение часа для подтверждения и оплаты.</div>
+                </div>
+              )}
+
+              {checkoutStep === "paid" && (
+                <div style={{ textAlign: "center", padding: "30px 0" }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>{"\u2713"}</div>
+                  <div style={{ fontSize: 15, marginBottom: 8 }}>Оплата прошла успешно!</div>
+                  <div style={{ color: T.dim, fontSize: 13, lineHeight: 1.5 }}>Спасибо за заказ — мы уже начали его собирать.</div>
                 </div>
               )}
             </div>

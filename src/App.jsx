@@ -278,7 +278,7 @@ const CATEGORY_ORDER = [
 const CATEGORIES = CATEGORY_ORDER.filter((c) => PRODUCTS.some((p) => p.category === c));
 const BRANDS = [...new Set(PRODUCTS.map((p) => p.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 /* Эти бренды скрыты из бокового фильтра по просьбе — сами товары остаются в каталоге и доступны через раздел/поиск */
-const HIDDEN_FROM_BRAND_FILTER = ["ODI", "OGIO", "Ski-Doo", "Ski-Doo BRP", "Sledex", "SPI"];
+const HIDDEN_FROM_BRAND_FILTER = ["ODI", "OGIO", "Ski-Doo BRP"];
 const SIDEBAR_BRANDS = BRANDS.filter((b) => !HIDDEN_FROM_BRAND_FILTER.includes(b));
 
 /* ============ Объединение вариантов размера в одну карточку + удаление дублей ============ */

@@ -361,6 +361,79 @@ const BRANDS = [...new Set(PRODUCTS.map((p) => p.brand).filter(Boolean))].sort((
 const HIDDEN_FROM_BRAND_FILTER = ["ODI", "OGIO", "Ski-Doo", "Ski-Doo BRP", "Sledex", "SPI"];
 const SIDEBAR_BRANDS = BRANDS.filter((b) => !HIDDEN_FROM_BRAND_FILTER.includes(b));
 
+/* ============ Объединение вариантов размера в одну карточку + удаление дублей ============ */
+const SIZE_TOKENS = ["XXXL", "XXL", "XL", "L", "M", "S"];
+const STANDARD_SIZES = ["S", "M", "L", "XL"];
+
+function extractSize(name) {
+  const m = name.match(/\(([^()]*)\)\s*$/);
+  if (!m) return null;
+  const tokens = m[1].split(/[\s,/]+/).map((t) => t.trim()).filter(Boolean);
+  for (const t of tokens) {
+    const tu = t.toUpperCase();
+    if (SIZE_TOKENS.includes(tu)) return tu;
+  }
+  return null;
+}
+function baseProductName(name) {
+  return name.replace(/\s*\([^()]*\)\s*$/, "").trim();
+}
+
+function buildCatalogItems(products) {
+  // 1. Убираем товары-дубликаты с одинаковым названием — оставляем тот, что добавлен позже (больше id)
+  const byName = new Map();
+  for (const p of products) {
+    const existing = byName.get(p.name);
+    if (!existing || p.id > existing.id) byName.set(p.name, p);
+  }
+  const deduped = [...byName.values()];
+
+  // 2. Группируем по (базовое название без размера, бренд) — если найдено 2+ размеров, объединяем в одну карточку
+  const groups = new Map();
+  const standalone = [];
+  for (const p of deduped) {
+    const size = extractSize(p.name);
+    if (size) {
+      const key = baseProductName(p.name) + "||" + p.brand;
+      if (!groups.has(key)) groups.set(key, { key, base: baseProductName(p.name), brand: p.brand, bySize: new Map() });
+      const g = groups.get(key);
+      const existing = g.bySize.get(size);
+      if (!existing || p.id > existing.id) g.bySize.set(size, p);
+    } else {
+      standalone.push(p);
+    }
+  }
+
+  const merged = [];
+  for (const g of groups.values()) {
+    const entries = [...g.bySize.entries()];
+    if (entries.length >= 2) {
+      const withImage = entries.find(([, p]) => p.image) || entries[0];
+      const rep = withImage[1];
+      merged.push({
+        isGroup: true,
+        key: g.key,
+        name: g.base,
+        brand: g.brand,
+        category: rep.category,
+        icon: rep.icon,
+        tag: rep.tag,
+        image: rep.image,
+        description: rep.description,
+        price: Math.min(...entries.map(([, p]) => p.price)),
+        sizes: entries.map(([size, p]) => ({ size, id: p.id, price: p.price, image: p.image, tag: p.tag })),
+      });
+    } else {
+      standalone.push(entries[0][1]);
+    }
+  }
+
+  return [...merged, ...standalone];
+}
+
+const CATALOG_ITEMS = buildCatalogItems(PRODUCTS);
+
+
 /* Логотипы для строки брендов на главной — только реальные бренды с загруженными логотипами, единый размер */
 const BRAND_LOGOS = {
   "509": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4CAYAAAA5ZDbSAAAcS0lEQVR42u18e2wc1b3/Z977fnpjO44dx7WN84AfJCEPUIloISlR06RupZRS4JYKEbWqQPQl0EVqChUqRS2VqqREwA+lKlWSUpXIQVDS8NBtEppCUuflJE7sxK+11+t9eXZ2Z3Zm7h/pOcyud+11YnTRvfOVVl7vzp45cz7f9/d7DmOapgmb/tcSay+BDbBNNsA22QDbZANskw2wTTbANtkA2wDbZANskw2wTTbANtkA22QDbJMNsA2wTTbANtkA22QDbJMNsE02wDbZANtkA2wDbJMNsE02wDbZANtkA2yTDbBNNsA2wDbZANtkA2zTZ4P46b40TRP2AQCfXWIYBgzDXBvAhmGAZdkZB7Dpf5YIThWZYLozOq5cuYJCoQCGYWxJ/oxJrmmakCQJDQ0Ns5Ng0zShaRp+8IMfYO/evTawn2GQDcPAtm3bsH379orqukiCdV0Hx3F45513sH79evj9/queGMuC4ziYpgnDMCjopQNa/yfvTdP8VNT8bLVKtXP4LDM0WUtd16l/JMsyjhw5gltvvbWsui5rg+PxOARBgCiKMAwD+XweiUQCPM9DkiTKPeQvAb1QKFCGIO85joOu6xXBuRb1z/M8HX+2TDEds8wluJ+mWXO5XJAkCRzHIZfLIR6PV2ROvtICEm7JZrO45ZZb0NnZiYsXL+LChQvI5/MIBoMwDAN1dXVUsn0+HzRNAwDMnz8fDocDAwMDqK+vhyAI0HUdhUIBpmmC53nkcjmoqgqHwwGe54tUD3EgiGYhzKJpGgYGBtDc3Aye52EYBgqFAliWpRxMHpQwGuFqXdcpyAQAwqDkGsMwwIABmE+iCFVVKVPxPA+WZZHJZCCKIgRBoHMg47EsC03T4HA4pmUuMr5hGNB1nc6dYRiqNcnnDMNAVVWwLIuDBw/i0qVLcDqdYBiGrl3VXjS5McdxUBQFN998M5YsWYL9+/ejr68PuVwOhmGA53l4vV44nU7k83l4vV54vV4AQCKRwKJFixAKhfD5z38eQ0ND8Hg8aGtrQzKZxNmzZ+FyudDc3AxJkqAoCjRNA8MwkCSJLpjX64XL5QLLshgfH0dtbS0EXsDw8DBy+Rw8Hg9dGIfDgVgsBpZhIYgCAMDhcEBRFKplCCMQwF1uFyI1EcTjcciyDNM0IQgCGIahz1RXV4dUKoVQKARZlpFIJLB06VIMDg4ikUhAkiQEAgG4XC44HA567blz56iUWTWdIAh0LgRMRVHAMizG4+M4fvw4mpubkc/nwbIsJEkCz/MQRREOhwNnzpzBhQsXwHHc9cXBuq7D7XbjyJEj+NOf/oRYLIb6+nr88Ic/RDqdBsuyFKyenh4MDAxQ1Z3L5Sjnbt++nX4uSRJ0XYemaRBFER6PB7IsQ9M0uvAsy0IQBBQKBQiCQBckn8+jpqYGHo8HqqpClmXE43HMnz8fLS0tcDqdSKVS0HUdmUwGpmli+fLlEEURmUwG4XAY58+fp4s2PDyMxsZGhEIhXLhwAWNjY3C5XGhtbUUsFqNaqb6+HiMjIwgEAojFYjh27Bhqa2sRj8ehKAo4joPP50M4HEZNTQ0ymQxCoRB6enqovSTPLcsyBEGAw+GApmkoFApQFAWqqgIACoUCDMOAw+HAkiVL0N3djba2NtTV1SGbzcI0TfT390MURTr2NQNM1PXg4CBYlkUwGITH48H58+dx6NAh5PN5OkGn00lVhmmacDqdVO0RtUO+I+/Jw3g8nqLviPawOnRkTEVRIMsy3G43WJaF1+tFoVBANBqlzAEA+Xwe2WwWx44dgyRJVMVbwz7DMHDx4kUKOlHpvb291OFMpVK4fPkyTNOkKt7hcGBkZASCIMDj8dDv4vE4EokERFHE6OgoRFGk5sjpdFJzwbIseJ6n0sswDERRpO8Nw4AgCMjn8xAEAZs3b8azzz6LWCyGn//85xgdHYWiKFXZer4aZ0FVVTAMA03TIMsyWJalhp1hGHAcR9WJdSHK3dgKNAGESG5pAF/6O+sCZbNZan9yuRxkWS66nuM48DyPeDxexCSlttD6ndU8lc7f+jtBECgzWz8nWkiWZTAMg3Q6TdVoMpksupb4FVaQrTZZURT09/dDkiTs2LEDo6OjSKfTePPNNyEIAvWTrktFWx+OcPeOHTuwYsUK/PGPf4TD4aBqgkgOcQ6mC0EqORzVhC1WJ4T8T+5J7qvrOlRVRS6Xg67rdI6loZtVmojDRBiuHNOR3xDHK5/PQ1VVOkcihWTxCViFQoHOAwAkSaJRCsuyU1QteTZRFOlnu3fvhs/ng9vtLtJsM4WAVQHMsizy+TxaWlqwYsUKaufI4lqBm5ycLHpo66KSiZcLyks/I/+TzwiXE04n6o9oEE3TkMlkoOs6vF4vFixYgIaGBsyLzEMoHILf74fH46F2LpPJYGJiAtFoFFeuXMHw8DASicRVx8vlgtvtLlp4AkQikQAA1NfXY+XKlWhra0NLSwtqa2vh9/vh8/moU0hCTFmWkUqlEIvF0NfXh3PnzuH06dMYGRmBYRjw+/1FUUApaIZhYPny5RgfH0csFqM+yXUXG6xSI8syfvSjH6GhoQG/+93vykpDJpPB17/+daxduxaGYUAURaoqibQQaSOOFHnP8zzlfPIbAh7HcuB4DgwYiJKIo0eP4vvf/z48Hg8KhQImJiZQV1eHDRs24K677sKqVavQ2NiIYDBY1SLkc3lcvnIZZ8+exaFDh/DOO++gp6cHTqcTbrcbpmkikUjA6/Xi3nvvRWdnJ1avXj1jmnA6ikajOHr0KPbs2YOuri6oqgq/30/NG3n2RCKBBx54AC+88ALuueceZDKZKTmA67LBRFpCoRBWrVoFRVEwMjJSZDuJdOZyOWzatAlbt279VDM6qVQKpmlCURTwPI+f/OQn+M53voO2trYpdtyqKq1q1xrri5KI9vZ2tLe3Y/PmzUin03hj/xt47hfP4dy5cwCATZs24emnn8ayZcumRBpW9U/iVp7noes6jR6oZgIDhmVQV1eHLVu2YMuWLTh69Cgef/xxHDt2DIFAoCj21TQNLS0tyGQyWLBgAWKxGAYHB6njeF0STCbG8zy++tWvorW1FZIk4dHHHsWePXuKnBGr50tsznQBeKkjVcmmWO2eYRg0+C8UCmhsbMTvf/97rFmz5qrq1QowYVJNYVXxpXMpvbeVAXw+H+7/1v3YeM9GfPOb30RLSwt27txZ5ByR8Uv9DfJ/PB5HKBSiKd5yzh1hjjVr1uDtt9/GN77xDRw8eBA+n++T9WAAVVVx5coVtLa24tSpUwgGg0in00U2+polmDz0U//5FOWafC5f1ktmGIZ6eNaHrUTVBOqVvHCGYfDSSy9hzZo1yOfzV80Ax07JxRK7duTIEbz66quQZRkbNmzAt771raKFtzpuJLMUDofxxhtvUGknDDZd2e7999/Hk08+iVgsBr/fjxdeeAG33XbblDyxlTlUVYXX68VLL72EtWvX0lALAFjmahJk9erVWLBgATiOw4svvlg2739NBX/y43g8joYFDUVennVgcq3L5aoquW8YBn784x/j/PnzEEWRxsTW/DaRVPIdiU1HRkZw9913Y926dSgUCkWcXM5bzufz+O53v4sTJ04AAPbv349169ahqamJqsNSJuIFniYcyFjTRQeE4Z944gkcOXKEJk9+9atf4fbbb6/olZPMlqZpqK+vx5133ondu3cjFAoVaUbTNNHQ0IAHH3wQv/71r6sWDr4aadE0DZevXMZN/++mGZP3M6llq81+99138fHHH0OSJBiGQfPYlRIuoihCFEUkk0k8/PDDVRUIGIbBxMQEEokEAoEARFHE5OQkotEompqaKv/u37ZyutCu9D75fB7JZBJer5fGyslkskgoZipOLFy4cIrdtn6vqirN8hGQr9nJIlmYZDKJU6dOYdOmTVOSAdYb8DxPJbga8nq9dOIulwuRSATz5s2Dx+OhajGbzSKRSGB8fByJRIImOG644YaqWlaI3SR+AdEGVk90ujFmU+osDRurKT+WqtpIJDLttRfOX8Dk5CT17q9bglVVxdKlSxGNRqfEaaVZIJJiq7bVJJPJoKOjAw899BBuu+02tLe3IxgMFqkfQzeQy+cwNjaGs2fPoqurC3v37kUgEChydmay9dbE/qdFxLmzLvxsy5qkHFtpnnv37aVFkGq0Cz/ThBVFweLFiyHLMpSsArfHPS33EhVdKuWljKNpGp5//nmsXr16itQTh4ZcS6pOzc3NuOeee/DYY4/B5XJV3UxgdZ7IvEpr1HNVA+Y4rshxK2d7pyNRFIvy8qW0Zs0aHD58GLFYrCovekZ2LhQKCIfDMAwDPed6Kqodos6rscHkQe68884p4FqBJQ9InC7icLW1tdEkQ7UAl0rEp1GMJwBbfQNd12EaZlU2nEiwlRlLqbW1FZFIhJZW5yST5fV6sWzZMgwMDGDFihUVF4dhih2TSoxg5dDR0VEcPnwYuq5j9erVVz1bQwfLsBXDKmu2pxoiKtpaD76WjpBq+6SI50tMnAnzahNBlWq+3HMRJpdluaiJYc6KDcuXL8fhw4endTA4joNTmr7LwKq+BgcHsW7dOly6dAkAsGjRIhw6dIh6kpUeYrZ2lAFDU5+l1Zy5ApaEcLfeeiuOHz8OTdOgaRqWL18+Jc88EzOWy8uTYs/g4CDS6XTVLUFVATw5OYmbb74Z8+bNK7vAhHNFUYSclZFMJqkKIek6a2uKpmngOA6HDh3ClStXEIlEwHEc+vr68MEHH+CBBx6Y2/4olpkSs88W4JkAIhri+eefx8qVK9HX14empiZs3bp1VnbYmoGzCkN3dzfS6TRisRhCoRCGh4fnTkUT77ipsamiDSPVls7Ozk++Z656wYZhwIQJ0zCL7JNhGAgEAtA0jarPfD5fseJ0rURUtNW+E4CrZSRrurScGiX/e71ePPzww9c111JTRrpqZFlGTU0NwuEw7fmqVNqcFcCEVE2dNsltmibGxsaKihDTqWmO44rCqqLYGnMnweWcLGvBfaZMXi6XQ29vL5YtW1Ycwlm88tJmBnLdsWPH0N7WDn/AP6tUbOn8lyxZgt/85je444474Ha7aWfKTILAz9bWzBToBwIB+nDW0mCpXSZdIKOjo0WhBVWdc+jkMvj3IpjXpqIZMLj//vvR1NSEhx56CCtXrkRDQ0NFlZ3L5XD8+HG8/PLLePfdd3H06NEpDFxt4sTpdOLAgQPYunUr/vnPf2Lp0qU0fVouZXzNAFtj00pxbTAYRFdXF83GWOvAHHsVaDCg9vrIkSP48pe/XNSPRLzbOW2WZ/5dHsQnam82AHP8VU2zf/9+vPnmm6irq8OiRYvQ1NSEYDBIkxOpVAqjo6Po6+vDwMAAkskkOjo6rqmoQjSE0+nEx8c/hqIoWLhwIW688UYMDg5WnUKtuuBPms1msh/z589HOByuerzSHq7ZJgaq0TjTqehqF5rYQofDgXQ6jY8//hjHjh2jJT/SpFDQCmDYq8kZUvYzjerVkTV8I7mFVCqFD49+iPb2dmQymSm7TK6r4E+SEqlUCgcPHsTXvva1is10pD0lFArRhHlpvposGMdxtOPDOtFy18+1DbZK8HT3IXMRBAF/+MMfaGMhy7AQJZE+H8tc1UySJOE/HvwPvP/B++A4jrYuzcafIHGu1YPWdR3/9ff/QmdnJ7q6uopaieYEYEmSEI1G0dXVhc7OzrKNcITTYmMxNDU1TcmnlvM6/X4/bdwrbZybjWaZkUEFkZoB0lhnXcCZ7mGaJtrb26tW56qqUr+CNL1X8ywAMDo6WiQcqqripptuwtDQEBYsWIBQKISLFy9WnQuo6ipVVVFTU1PEWaXcz3Hc1T7kfx6bUQWSMWpra+FyuZBIJJDP52nMXM3Ck0WwbsSqdB0YoK6uDrIs0/7p1tbWGdOW1n4zVVVpRYqEJtYXaZn94he/SDVeNpvF7bffDq/XOy3I1hj7jTfeoOVTAFAUBW1tbUilUrRd6h//+AfNxc9ZHOxwOPDhhx+ip6cHLpdrSs3SMAxIkoTXXnsN27Ztow5TuYwWSYx4PB4888wz2LlzJ7LZLNrb27Fx48aiDsxKzh7HcUin0/D5fDR1V6mwYZomnnnmGXR0dECWZaxevRrLly8vW+y3qnDSV/33v/8dX/nKV2ipkUQG5bJrjz/+OL70pS9hYGAAfr8ft9xyC7WZldKPZI2eeOIJHD58GIFAoGirTV9fH3p6enDgwAHceOONtIW2KjNmWqhQKJimaZp79+41OY4z6+vrTQDmY489ZhqGYUYiEfPAgQNmb2+v6XK5zFAoZIZCITMcDpvhcNiMRCKmIAjm9u3b6ZiappmFQsE0DMMsJetnuVyu7Ofkf13X6fxM0zQPHz5sLl682Ny/f3/R/AuFgqnretEYuq6XvTd56bpOx7feY2BgwNywYYMpCIL58ssvF/1WVdWie1lfVrKOa31ZaXh42Pz2t79tchxnhkIhMxgMmuFwmL4PBoOmy+Uyb7rpJvO+++4rWntBEMy33367CD8rVZ3UNQ0TkUgEHR0dUBSlbJBN9vL87Gc/w7Zt2zAwMACe56k9IpJhbQRXVRW6rtO2FU3Tiq4hmoLY6Fwuh507d2Lz5s3o7e3F1q1b8eSTT2J4eJjacKs0E0kgjeq5XA75fL4oA2Rt5yWa4cUXX8Qdd9yBv/3tb/B6vXjkkUewefNmHDx4ELlcrqjl17oWRDuRuVvHtb4A4NSpU/jpT3+KNWvW4NVXX6WSW5r04DiO7tR877336LbeOSs2GIYBlmOxcOFCnDx5Ei6Xi27dLJdJ8fv92LVrFw4cOIAtW7Zg48aNWLliJSLzItM6UZXUcjabRXd3Nw4ePIjXX38d3d3d8Hg88Pl8MAwDv/jFL/Daa69h48aNWL9+PZYsWYLGxsai/VHT3Tefz2NgYABnzpzBoUOH8NZbb+H8+fNwu90IBoMoFArwer3o6urCX//6VyxevBhr167FqlWr8LnPfQ7z6+cjEAzA6XRSZrY2viuKgkQigWg0ir6+Pnz00Uf46KOPcPLkSWQyGTgcDgSDwbJ+i7WoQPyNBQsW0G0tcwYwAe6Xv/wlamtr4XA4kM/nK5a2wuEw0uk0fvvb32LXrl2or6/HwoULccMNN6CpqQl1dXXwer00tiRHRyiKglQqhfHxcQwNDeHy5cvo7e3F5cuXaasKCcPIvGpqapBMJrFr1y688sor8Pl8iEQiqK+vRzAYpNtaaaxaKGBychKyLGNsbAzRaBTRaBSpVAqFQgEOhwOhUIjGpWSBg8EgTNNET08PTpw4gR07dtB4V5IkeDyeoiyTYRjI5XLIZrOYnJykG+dI6OV0OhEKhYqcy5nieWsyaE4lmHjTFy9eRHd3d1F6sZwkkgJFTU0NDMNAIpHA8PAwPvjgg6JrSBnPmr8u3UYqCAIkSaL7ckrzyGSbKUmw5PN59Pf349KlS5/EomWKI0T7kH1JPp+PPm+5zeLkM5fLRbfB6LqOXC6HTCaDWCw2JT61mg1RFOF0Oqc0MZRKarkohjhqZMutVXvOyd4kAGhqasKf//xnzJs3b0oHZGnCvTRjRDaLW+1UpXDIupGtdBNXpd9YG8mJpJLsUyVP2cpQM6UvS32NUltJ0pXWa62RBnmO6aSvkjasqamBLMtIp9NwOp3w+/1F23CvC2CSZ56cnMRTTz2F119/Hclksij8sZbRSpvOyHVkUUofvrTDozSGLreJrVLTd+liWpms9B7W91ZGqraQXjpe6bjlXuUYjDBX6XjWJkFVVWnLcCAQgNfrpRvGr7tcSM6b2LdvH86dO1fE+dYtnBzHIZPJQFVVuN1uqlLIRCRJorv0yXELROKItJGzMMjDkb1H1kUne34IKCTBQLa0ENNAriP9w6UMZd0mSipdxJO37t4r3ZpjdczIuACoRiPzIOtjnaf1lBxSy7WeH0I2qFvNR6FQQEdHByRJQjwex1133YXLly8XtS1dlwST7ZQPPvgg9uzZg507d1LwJicnizZCP/LII7SI39railwuh8bGRjAMg6GhIYyPjyOVSuHixYvwer1YsmQJampqMDExAeBqtknTNExMTMDlciEQCGBsbIzauaGhIUiShH/961+IRqPo7OyEx+OBy+WiB8MIgoBoNIpsNkuPSiCLTJiLSI3D4YAgCFBVFZcuXcLAwAAkScKHH36ISCSC2tpaerwEz/PQNA25XA4Mw6C+vh66rkOSJAwODsLn84HjOLplxePxIJfLQVEUeL1e1NTU0LUKh8Po7++Hy+VCQ0MDNE1DIBBAb28vWltbKZMSJl+/fj00TcO6detw+223o7+/f0r35nXZYJK/jUQicDgcVNLWrl2Lc+fO0WOWIpEIHn30UQwPDyObzWJsbAz9/f3Ys2cPotEoZFlGa2srvvCFLyCZTOLAgQNQFAVjY2MoFAqora1FJpOBoihwu93w+/2IRqNFG9smJyfh8/ng9Xrx1ltvweVyQVVVtLa24nvf+x7+8pe/4OTJk1AUBfF4nJ6N4fV6MTk5Sc8dkSQJDocDkiRhfHwcLMtiZGQEPM/D5/MhHo9jbGyMtrHmcjl6ZMTk5CTtqCD9yaIoIpvNIpVKged5pNNpGnMTL7qxsZGmHE+fPg2GYWifm9/vRyaTQXd3N5VsQRCQSqWQTCbx/PPP47333sO6devwyv9/5ZNCxww5ab6aFOXRo0fx9NNP4/Tp01StiaKIlpYWKIqC8+fPIxAI4LnnnsOOHTtQU1MDnudRV1eHdDqNEydOUHUliiJdPJLKdLvdGB4expkzZ6h6isfjRSqMSCHHcWhubkZLSwvtCx4aGsLExASeffZZeDweNDc3w+l0YmxsjDIG2f+kqipCoRA9GUjXdTQ0NFBGISo7lUphaGgI4XAYgUAAiUQCgiCgvr4e2WyWVtmIF6+qKoaHh5FKpTAyMgLTNBEKhcDzPPx+Pw3T5s2bB4fDgUWLFiEej6O+vh6GYdBwiUQNuVyuKC27e/duCIKAXbt2oa+vr+pkR9mT7vbt24d7772X9v4QVSMIAlwuF7VLREUTLrdmcIjHyLIsHA4HVSOKotDDRUiWy+pUVPIqrY4QOfyF/E+SLtbCg/V0vtLDYKwHtpHrrVqChDXW4xWISqQlQ0s3hfV4JKLtSk8GIF661e+wbi0ln1tDRGuNnBy6AgBut5tWx2RZxv79+3H33XdT/GaUYDIRsnBer5e65lYPl+yAs7Z2lpbjSr08a6xZGq5U8opLs1zEYSv1lq0OUWmTXaV7VApRym2NNQwDbre7rHdsBa80XCROJFkb6/NYU7HWGrX1HC3TNOm6lX6vadr07U2liXHDMMxLly6ZCxcuNP/dGTXrF8Mw9HWtY/xfe812rcj1HR0dZjQaLVvoME3TnHKcMFEZp0+fxr59+2bskJwuHq30u2q7NUolr1Ra5/o8yHKSXulMzXKFltl2mZS7V6VThSp1mtx3331oaWmpvA+s3HnRn9YJsTZ9OjRdUz5fiZNnypDY9Nmgcg2FM0qwTf+LGMBeAhtgm2yAbbIBtskG2CYbYJtsgG2yAbYBtskG2CYbYJtsgG2yAbbJBtgmG2AbYJtsgG2yAbbJBtgmG2CbbIBtsgG2yQbYBtgmG2CbbIBtsgG2yQbYJhtgm2yAbYBtsgG2yQbYps8G/TfWkW+zQFcCkgAAAABJRU5ErkJggg==",
@@ -408,8 +481,10 @@ const ProductImage = ({ src, alt, icon, color }) => {
 /* ============ Main component ============ */
 export default function Shop() {
   const [page, setPage] = useState("home"); // home | catalog | school
-  const [detailId, setDetailId] = useState(null);
-  const [catalogSelected, setCatalogSelected] = useState(null); // выбранная категория внутри "Каталог"
+  const [detailItem, setDetailItem] = useState(null);
+  const [selectedSize, setSelectedSize] = useState(null);
+  const [catalogSelected, setCatalogSelected] = useState(null); // выбранная категория или бренд внутри "Каталог"
+  const [catalogViewMode, setCatalogViewMode] = useState("category"); // category | brand
   const [catFilter, setCatFilter] = useState("all");
   const [brandFilter, setBrandFilter] = useState("all");
   const [query, setQuery] = useState("");
@@ -455,6 +530,14 @@ export default function Shop() {
     }
   }, []);
 
+  useEffect(() => {
+    if (detailItem && detailItem.isGroup) {
+      setSelectedSize(detailItem.sizes[0].size);
+    } else {
+      setSelectedSize(null);
+    }
+  }, [detailItem]);
+
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -479,7 +562,7 @@ export default function Shop() {
   };
 
   const filtered = useMemo(() => {
-    return PRODUCTS.filter((p) => {
+    return CATALOG_ITEMS.filter((p) => {
       if (catFilter !== "all" && p.category !== catFilter) return false;
       if (brandFilter !== "all" && p.brand !== brandFilter) return false;
       if (query && !p.name.toLowerCase().includes(query.toLowerCase()) && !p.brand.toLowerCase().includes(query.toLowerCase())) return false;
@@ -705,9 +788,9 @@ export default function Shop() {
               <div style={{ color: T.dim, fontSize: 13, marginBottom: 14 }}>{filtered.length} товаров</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 16 }}>
                 {filtered.map((p) => (
-                  <div key={p.id} className="st-card" style={{ border: `1px solid ${T.border}`, background: T.panel, display: "flex", flexDirection: "column" }}>
+                  <div key={p.isGroup ? p.key : p.id} className="st-card" style={{ border: `1px solid ${T.border}`, background: T.panel, display: "flex", flexDirection: "column" }}>
                     <div
-                      onClick={() => setDetailId(p.id)}
+                      onClick={() => setDetailItem(p)}
                       style={{ height: 200, borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}
                     >
                       <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} />
@@ -715,16 +798,18 @@ export default function Shop() {
                     <div style={{ padding: 14, display: "flex", flexDirection: "column", flex: 1 }}>
                       <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>{p.brand} · {p.tag}</div>
                       <div
-                        onClick={() => setDetailId(p.id)}
+                        onClick={() => setDetailItem(p)}
                         style={{ fontSize: 14.5, lineHeight: 1.35, marginBottom: 12, flex: 1, cursor: "pointer" }}
                       >
                         {p.name}
                       </div>
-                      <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 17, fontWeight: 600, marginBottom: 10 }}>{rub(p.price)}</div>
+                      <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 17, fontWeight: 600, marginBottom: 10 }}>
+                        {p.isGroup ? "от " : ""}{rub(p.price)}
+                      </div>
                       <div style={{ display: "flex", gap: 8 }}>
                         <button
                           className="st-btn"
-                          onClick={() => setDetailId(p.id)}
+                          onClick={() => setDetailItem(p)}
                           style={{
                             background: "transparent",
                             border: `1px solid ${T.border}`,
@@ -739,9 +824,9 @@ export default function Shop() {
                         </button>
                         <button
                           className="st-btn"
-                          onClick={() => addToCart(p.id)}
+                          onClick={() => (p.isGroup ? setDetailItem(p) : addToCart(p.id))}
                           style={{
-                            background: flash === p.id ? T.ice : T.orange,
+                            background: !p.isGroup && flash === p.id ? T.ice : T.orange,
                             color: T.bg,
                             padding: "7px 12px",
                             fontSize: 13,
@@ -749,7 +834,7 @@ export default function Shop() {
                             flex: 1,
                           }}
                         >
-                          {flash === p.id ? "Добавлено" : "В корзину"}
+                          {p.isGroup ? "Выбрать размер" : flash === p.id ? "Добавлено" : "В корзину"}
                         </button>
                       </div>
                     </div>
@@ -765,25 +850,57 @@ export default function Shop() {
         <div style={{ maxWidth: 1180, margin: "0 auto", padding: "40px 24px" }}>
           {catalogSelected === null ? (
             <>
-              <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(24px, 3vw, 32px)", fontWeight: 700, margin: "0 0 24px" }}>
+              <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(24px, 3vw, 32px)", fontWeight: 700, margin: "0 0 20px" }}>
                 Каталог
               </h1>
+              <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+                <button
+                  className="st-btn"
+                  onClick={() => setCatalogViewMode("category")}
+                  style={{
+                    background: catalogViewMode === "category" ? T.orange : "transparent",
+                    color: catalogViewMode === "category" ? T.bg : T.text,
+                    border: `1px solid ${catalogViewMode === "category" ? T.orange : T.border}`,
+                    padding: "8px 18px", fontSize: 14, fontWeight: 600,
+                  }}
+                >
+                  По категориям
+                </button>
+                <button
+                  className="st-btn"
+                  onClick={() => setCatalogViewMode("brand")}
+                  style={{
+                    background: catalogViewMode === "brand" ? T.orange : "transparent",
+                    color: catalogViewMode === "brand" ? T.bg : T.text,
+                    border: `1px solid ${catalogViewMode === "brand" ? T.orange : T.border}`,
+                    padding: "8px 18px", fontSize: 14, fontWeight: 600,
+                  }}
+                >
+                  По брендам
+                </button>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 }}>
-                {CATEGORIES.map((cat) => {
-                  const items = PRODUCTS.filter((p) => p.category === cat);
+                {(catalogViewMode === "category" ? CATEGORIES : SIDEBAR_BRANDS).map((entry) => {
+                  const items = catalogViewMode === "category"
+                    ? CATALOG_ITEMS.filter((p) => p.category === entry)
+                    : CATALOG_ITEMS.filter((p) => p.brand === entry);
                   const sample = items.find((p) => p.image) || items[0];
                   return (
                     <div
-                      key={cat}
+                      key={entry}
                       className="st-card"
-                      onClick={() => { setCatalogSelected(cat); setCatFilter(cat); setBrandFilter("all"); }}
+                      onClick={() => {
+                        setCatalogSelected(entry);
+                        if (catalogViewMode === "category") { setCatFilter(entry); setBrandFilter("all"); }
+                        else { setBrandFilter(entry); setCatFilter("all"); }
+                      }}
                       style={{ border: `1px solid ${T.border}`, background: T.panel, cursor: "pointer", overflow: "hidden" }}
                     >
                       <div style={{ height: 150 }}>
-                        <ProductImage src={sample && sample.image} alt={cat} icon={sample ? sample.icon : "cog"} color={T.ice} />
+                        <ProductImage src={sample && sample.image} alt={entry} icon={sample ? sample.icon : "cog"} color={T.ice} />
                       </div>
                       <div style={{ padding: 14 }}>
-                        <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{cat}</div>
+                        <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{entry}</div>
                         <div style={{ color: T.dim, fontSize: 13 }}>{items.length} товаров</div>
                       </div>
                     </div>
@@ -795,10 +912,10 @@ export default function Shop() {
             <>
               <div
                 className="st-navlink"
-                onClick={() => { setCatalogSelected(null); setCatFilter("all"); }}
+                onClick={() => { setCatalogSelected(null); setCatFilter("all"); setBrandFilter("all"); }}
                 style={{ color: T.dim, fontSize: 14, marginBottom: 20, display: "inline-block" }}
               >
-                {"\u2190"} Все категории
+                {"\u2190"} {catalogViewMode === "category" ? "Все категории" : "Все бренды"}
               </div>
               <div className="st-layout" style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 28 }}>
                 <aside className="st-sidebar" style={{ position: "sticky", top: 76, alignSelf: "start" }}>
@@ -856,9 +973,9 @@ export default function Shop() {
                   <div style={{ color: T.dim, fontSize: 13, marginBottom: 14 }}>{filtered.length} товаров</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 16 }}>
                     {filtered.map((p) => (
-                      <div key={p.id} className="st-card" style={{ border: `1px solid ${T.border}`, background: T.panel, display: "flex", flexDirection: "column" }}>
+                      <div key={p.isGroup ? p.key : p.id} className="st-card" style={{ border: `1px solid ${T.border}`, background: T.panel, display: "flex", flexDirection: "column" }}>
                         <div
-                          onClick={() => setDetailId(p.id)}
+                          onClick={() => setDetailItem(p)}
                           style={{ height: 200, borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}
                         >
                           <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} />
@@ -866,26 +983,28 @@ export default function Shop() {
                         <div style={{ padding: 14, display: "flex", flexDirection: "column", flex: 1 }}>
                           <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>{p.brand} · {p.tag}</div>
                           <div
-                            onClick={() => setDetailId(p.id)}
+                            onClick={() => setDetailItem(p)}
                             style={{ fontSize: 14.5, lineHeight: 1.35, marginBottom: 12, flex: 1, cursor: "pointer" }}
                           >
                             {p.name}
                           </div>
-                          <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 17, fontWeight: 600, marginBottom: 10 }}>{rub(p.price)}</div>
+                          <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 17, fontWeight: 600, marginBottom: 10 }}>
+                            {p.isGroup ? "от " : ""}{rub(p.price)}
+                          </div>
                           <div style={{ display: "flex", gap: 8 }}>
                             <button
                               className="st-btn"
-                              onClick={() => setDetailId(p.id)}
+                              onClick={() => setDetailItem(p)}
                               style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "7px 10px", fontSize: 13, fontWeight: 500, flex: 1 }}
                             >
                               Подробнее
                             </button>
                             <button
                               className="st-btn"
-                              onClick={() => addToCart(p.id)}
-                              style={{ background: flash === p.id ? T.ice : T.orange, color: T.bg, padding: "7px 12px", fontSize: 13, fontWeight: 600, flex: 1 }}
+                              onClick={() => (p.isGroup ? setDetailItem(p) : addToCart(p.id))}
+                              style={{ background: !p.isGroup && flash === p.id ? T.ice : T.orange, color: T.bg, padding: "7px 12px", fontSize: 13, fontWeight: 600, flex: 1 }}
                             >
-                              {flash === p.id ? "Добавлено" : "В корзину"}
+                              {p.isGroup ? "Выбрать размер" : flash === p.id ? "Добавлено" : "В корзину"}
                             </button>
                           </div>
                         </div>
@@ -1204,12 +1323,20 @@ export default function Shop() {
       )}
 
       {/* ===== Product detail modal ===== */}
-      {detailId !== null && (() => {
-        const p = PRODUCTS.find((x) => x.id === detailId);
-        if (!p) return null;
+      {detailItem !== null && (() => {
+        const p = detailItem;
+        const activeVariant = p.isGroup ? p.sizes.find((s) => s.size === selectedSize) : null;
+        const displayImage = p.isGroup ? (activeVariant ? activeVariant.image : p.image) : p.image;
+        const displayPrice = p.isGroup ? (activeVariant ? activeVariant.price : p.price) : p.price;
+        const cartTargetId = p.isGroup ? (activeVariant ? activeVariant.id : null) : p.id;
+        const sizesToShow = p.isGroup
+          ? Array.from(new Set([...STANDARD_SIZES, ...p.sizes.map((s) => s.size)])).sort(
+              (a, b) => SIZE_TOKENS.indexOf(b) - SIZE_TOKENS.indexOf(a)
+            )
+          : [];
         return (
           <>
-            <div onClick={() => setDetailId(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 40 }} />
+            <div onClick={() => setDetailItem(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 40 }} />
             <div
               style={{
                 position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
@@ -1218,22 +1345,64 @@ export default function Shop() {
               }}
             >
               <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px 14px 0" }}>
-                <button className="st-btn" onClick={() => setDetailId(null)} style={{ background: "transparent", color: T.dim, fontSize: 20, padding: 4 }}>{"\u2715"}</button>
+                <button className="st-btn" onClick={() => setDetailItem(null)} style={{ background: "transparent", color: T.dim, fontSize: 20, padding: 4 }}>{"\u2715"}</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr)", gap: 0, padding: "0 24px 28px" }}>
                 <div style={{ height: 340, marginBottom: 20, border: `1px solid ${T.border}` }}>
-                  <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} />
+                  <ProductImage src={displayImage} alt={p.name} icon={p.icon} color={T.ice} />
                 </div>
                 <div style={{ fontSize: 12, color: T.dim, marginBottom: 6 }}>{p.brand} · {p.category} · {p.tag}</div>
                 <h2 style={{ fontFamily: "'Oswald',sans-serif", fontSize: 24, fontWeight: 600, margin: "0 0 14px", lineHeight: 1.25 }}>{p.name}</h2>
-                <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 18 }}>{rub(p.price)}</div>
+                <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 18 }}>{rub(displayPrice)}</div>
+
+                {p.isGroup && (
+                  <div style={{ marginBottom: 22 }}>
+                    <div style={{ fontSize: 12, color: T.dim, marginBottom: 8 }}>Размер</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {sizesToShow.map((size) => {
+                        const variant = p.sizes.find((s) => s.size === size);
+                        const available = Boolean(variant);
+                        const active = selectedSize === size;
+                        return (
+                          <button
+                            key={size}
+                            disabled={!available}
+                            onClick={() => available && setSelectedSize(size)}
+                            className="st-btn"
+                            style={{
+                              width: 46, height: 40,
+                              background: active ? T.orange : "transparent",
+                              color: !available ? T.border : active ? T.bg : T.text,
+                              border: `1px solid ${active ? T.orange : T.border}`,
+                              fontSize: 13, fontWeight: 600,
+                              cursor: available ? "pointer" : "not-allowed",
+                              opacity: available ? 1 : 0.4,
+                            }}
+                          >
+                            {size}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {!activeVariant && (
+                      <div style={{ color: T.dim, fontSize: 12.5, marginTop: 8 }}>Выберите размер, чтобы добавить в корзину.</div>
+                    )}
+                  </div>
+                )}
+
                 <p style={{ color: T.dim, fontSize: 14.5, lineHeight: 1.6, marginBottom: 22 }}>{p.description}</p>
                 <button
                   className="st-btn"
-                  onClick={() => { addToCart(p.id); }}
-                  style={{ background: flash === p.id ? T.ice : T.orange, color: T.bg, padding: "12px 20px", fontWeight: 600, fontSize: 14 }}
+                  disabled={p.isGroup && !cartTargetId}
+                  onClick={() => { if (cartTargetId) addToCart(cartTargetId); }}
+                  style={{
+                    background: cartTargetId && flash === cartTargetId ? T.ice : T.orange,
+                    color: T.bg, padding: "12px 20px", fontWeight: 600, fontSize: 14,
+                    opacity: p.isGroup && !cartTargetId ? 0.5 : 1,
+                    cursor: p.isGroup && !cartTargetId ? "not-allowed" : "pointer",
+                  }}
                 >
-                  {flash === p.id ? "Добавлено" : "В корзину"}
+                  {cartTargetId && flash === cartTargetId ? "Добавлено" : "В корзину"}
                 </button>
               </div>
             </div>

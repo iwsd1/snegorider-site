@@ -354,6 +354,42 @@ function buildCatalogItems(products) {
 
 const CATALOG_ITEMS = buildCatalogItems(PRODUCTS);
 
+/* ============ URL-адреса для товаров/категорий/брендов (для SEO) ============ */
+function findCatalogItemByUrlId(idStr) {
+  const decoded = decodeURIComponent(idStr);
+  const asNum = Number(decoded);
+  if (!Number.isNaN(asNum)) {
+    const found = CATALOG_ITEMS.find((p) => !p.isGroup && p.id === asNum);
+    if (found) return found;
+  }
+  return CATALOG_ITEMS.find((p) => p.isGroup && p.key === decoded) || null;
+}
+function urlForItem(item) {
+  return item.isGroup ? `/product/${encodeURIComponent(item.key)}` : `/product/${item.id}`;
+}
+function parseRoute(pathname) {
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts.length === 0) return { page: "home" };
+  if (parts[0] === "product" && parts[1]) {
+    const item = findCatalogItemByUrlId(parts[1]);
+    return { page: "home", detailItem: item || null };
+  }
+  if (parts[0] === "catalog") {
+    if (parts[1] === "category" && parts[2]) {
+      return { page: "catalog", catalogViewMode: "category", catalogSelected: decodeURIComponent(parts[2]) };
+    }
+    if (parts[1] === "brand" && parts[2]) {
+      return { page: "catalog", catalogViewMode: "brand", catalogSelected: decodeURIComponent(parts[2]) };
+    }
+    return { page: "catalog" };
+  }
+  if (parts[0] === "school") return { page: "school" };
+  if (parts[0] === "account") return { page: "account" };
+  if (parts[0] === "requisites") return { page: "requisites" };
+  if (parts[0] === "offer") return { page: "offer" };
+  return { page: "home" };
+}
+
 
 /* Логотипы для строки брендов на главной — только реальные бренды с загруженными логотипами, единый размер */
 const BRAND_LOGOS = {
@@ -459,6 +495,52 @@ export default function Shop() {
     }
   }, [detailItem]);
 
+  /* ============ Синхронизация с адресной строкой (для SEO) ============ */
+  const applyRoute = (route) => {
+    setPage(route.page);
+    if ("catalogSelected" in route) setCatalogSelected(route.catalogSelected);
+    if ("catalogViewMode" in route) setCatalogViewMode(route.catalogViewMode);
+    if (route.catalogViewMode === "category" && route.catalogSelected) { setCatFilter(route.catalogSelected); setBrandFilter("all"); }
+    if (route.catalogViewMode === "brand" && route.catalogSelected) { setBrandFilter(route.catalogSelected); setCatFilter("all"); }
+    if ("detailItem" in route) setDetailItem(route.detailItem);
+  };
+
+  useEffect(() => {
+    applyRoute(parseRoute(window.location.pathname));
+    const onPopState = () => applyRoute(parseRoute(window.location.pathname));
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const goTo = (path, updater) => {
+    window.history.pushState({}, "", path);
+    updater();
+  };
+
+  const closeDetail = () => {
+    let path = "/";
+    if (page === "catalog") {
+      if (catalogSelected) {
+        path = catalogViewMode === "category"
+          ? `/catalog/category/${encodeURIComponent(catalogSelected)}`
+          : `/catalog/brand/${encodeURIComponent(catalogSelected)}`;
+      } else {
+        path = "/catalog";
+      }
+    }
+    goTo(path, () => setDetailItem(null));
+  };
+
+  useEffect(() => {
+    if (detailItem) {
+      document.title = `${detailItem.name} — SnegoRider`;
+    } else if (page === "catalog" && catalogSelected) {
+      document.title = `${catalogSelected} — Каталог — SnegoRider`;
+    } else {
+      document.title = "SnegoRider — запчасти и экипировка";
+    }
+  }, [detailItem, page, catalogSelected]);
+
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -538,21 +620,21 @@ export default function Shop() {
         <nav style={{ display: "flex", gap: 24, fontSize: 15 }}>
           <span
             className="st-navlink"
-            onClick={() => setPage("home")}
+            onClick={() => goTo("/", () => setPage("home"))}
             style={{ color: page === "home" ? T.text : T.dim, fontWeight: page === "home" ? 600 : 400, borderBottom: page === "home" ? `2px solid ${T.orange}` : "2px solid transparent", paddingBottom: 4 }}
           >
             Магазин
           </span>
           <span
             className="st-navlink"
-            onClick={() => { setPage("catalog"); setCatalogSelected(null); }}
+            onClick={() => goTo("/catalog", () => { setPage("catalog"); setCatalogSelected(null); })}
             style={{ color: page === "catalog" ? T.text : T.dim, fontWeight: page === "catalog" ? 600 : 400, borderBottom: page === "catalog" ? `2px solid ${T.orange}` : "2px solid transparent", paddingBottom: 4 }}
           >
             Каталог
           </span>
           <span
             className="st-navlink"
-            onClick={() => setPage("school")}
+            onClick={() => goTo("/school", () => setPage("school"))}
             style={{ color: page === "school" ? T.text : T.dim, fontWeight: page === "school" ? 600 : 400, borderBottom: page === "school" ? `2px solid ${T.orange}` : "2px solid transparent", paddingBottom: 4 }}
           >
             Снегоходная школа
@@ -574,7 +656,7 @@ export default function Shop() {
         {user ? (
           <button
             className="st-btn"
-            onClick={() => setPage("account")}
+            onClick={() => goTo("/account", () => setPage("account"))}
             style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "6px 16px 6px 6px", fontSize: 14, display: "flex", alignItems: "center", gap: 10 }}
           >
             <span
@@ -711,7 +793,7 @@ export default function Shop() {
                 {filtered.map((p) => (
                   <div key={p.isGroup ? p.key : p.id} className="st-card" style={{ border: `1px solid ${T.border}`, background: T.panel, display: "flex", flexDirection: "column" }}>
                     <div
-                      onClick={() => setDetailItem(p)}
+                      onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
                       style={{ height: 200, borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}
                     >
                       <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} />
@@ -719,7 +801,7 @@ export default function Shop() {
                     <div style={{ padding: 14, display: "flex", flexDirection: "column", flex: 1 }}>
                       <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>{p.brand} · {p.tag}</div>
                       <div
-                        onClick={() => setDetailItem(p)}
+                        onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
                         style={{ fontSize: 14.5, lineHeight: 1.35, marginBottom: 12, flex: 1, cursor: "pointer" }}
                       >
                         {p.name}
@@ -730,7 +812,7 @@ export default function Shop() {
                       <div style={{ display: "flex", gap: 8 }}>
                         <button
                           className="st-btn"
-                          onClick={() => setDetailItem(p)}
+                          onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
                           style={{
                             background: "transparent",
                             border: `1px solid ${T.border}`,
@@ -745,7 +827,7 @@ export default function Shop() {
                         </button>
                         <button
                           className="st-btn"
-                          onClick={() => (p.isGroup ? setDetailItem(p) : addToCart(p.id))}
+                          onClick={() => (p.isGroup ? goTo(urlForItem(p), () => setDetailItem(p)) : addToCart(p.id))}
                           style={{
                             background: !p.isGroup && flash === p.id ? T.ice : T.orange,
                             color: T.bg,
@@ -811,9 +893,14 @@ export default function Shop() {
                       key={entry}
                       className="st-card"
                       onClick={() => {
-                        setCatalogSelected(entry);
-                        if (catalogViewMode === "category") { setCatFilter(entry); setBrandFilter("all"); }
-                        else { setBrandFilter(entry); setCatFilter("all"); }
+                        const path = catalogViewMode === "category"
+                          ? `/catalog/category/${encodeURIComponent(entry)}`
+                          : `/catalog/brand/${encodeURIComponent(entry)}`;
+                        goTo(path, () => {
+                          setCatalogSelected(entry);
+                          if (catalogViewMode === "category") { setCatFilter(entry); setBrandFilter("all"); }
+                          else { setBrandFilter(entry); setCatFilter("all"); }
+                        });
                       }}
                       style={{ border: `1px solid ${T.border}`, background: T.panel, cursor: "pointer", overflow: "hidden" }}
                     >
@@ -833,7 +920,7 @@ export default function Shop() {
             <>
               <div
                 className="st-navlink"
-                onClick={() => { setCatalogSelected(null); setCatFilter("all"); setBrandFilter("all"); }}
+                onClick={() => goTo("/catalog", () => { setCatalogSelected(null); setCatFilter("all"); setBrandFilter("all"); })}
                 style={{ color: T.dim, fontSize: 14, marginBottom: 20, display: "inline-block" }}
               >
                 {"\u2190"} {catalogViewMode === "category" ? "Все категории" : "Все бренды"}
@@ -896,7 +983,7 @@ export default function Shop() {
                     {filtered.map((p) => (
                       <div key={p.isGroup ? p.key : p.id} className="st-card" style={{ border: `1px solid ${T.border}`, background: T.panel, display: "flex", flexDirection: "column" }}>
                         <div
-                          onClick={() => setDetailItem(p)}
+                          onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
                           style={{ height: 200, borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}
                         >
                           <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} />
@@ -904,7 +991,7 @@ export default function Shop() {
                         <div style={{ padding: 14, display: "flex", flexDirection: "column", flex: 1 }}>
                           <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>{p.brand} · {p.tag}</div>
                           <div
-                            onClick={() => setDetailItem(p)}
+                            onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
                             style={{ fontSize: 14.5, lineHeight: 1.35, marginBottom: 12, flex: 1, cursor: "pointer" }}
                           >
                             {p.name}
@@ -915,14 +1002,14 @@ export default function Shop() {
                           <div style={{ display: "flex", gap: 8 }}>
                             <button
                               className="st-btn"
-                              onClick={() => setDetailItem(p)}
+                              onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
                               style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "7px 10px", fontSize: 13, fontWeight: 500, flex: 1 }}
                             >
                               Подробнее
                             </button>
                             <button
                               className="st-btn"
-                              onClick={() => (p.isGroup ? setDetailItem(p) : addToCart(p.id))}
+                              onClick={() => (p.isGroup ? goTo(urlForItem(p), () => setDetailItem(p)) : addToCart(p.id))}
                               style={{ background: !p.isGroup && flash === p.id ? T.ice : T.orange, color: T.bg, padding: "7px 12px", fontSize: 13, fontWeight: 600, flex: 1 }}
                             >
                               {p.isGroup ? "Выбрать размер" : flash === p.id ? "Добавлено" : "В корзину"}
@@ -1052,7 +1139,7 @@ export default function Shop() {
               <p>
                 По всем вопросам, связанным с заказом, оплатой, доставкой и возвратом, Покупатель может обратиться
                 по телефону +7 950 960-38-73 или +7 950 960-39-35. Реквизиты Продавца указаны на{" "}
-                <span className="st-navlink" onClick={() => setPage("requisites")} style={{ color: T.orange, textDecoration: "underline" }}>
+                <span className="st-navlink" onClick={() => goTo("/requisites", () => setPage("requisites"))} style={{ color: T.orange, textDecoration: "underline" }}>
                   странице «Реквизиты»
                 </span>.
               </p>
@@ -1146,10 +1233,10 @@ export default function Shop() {
         </div>
         <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
           <span>Доставка по России · Самовывоз со склада</span>
-          <span className="st-navlink" onClick={() => setPage("requisites")} style={{ textDecoration: "underline" }}>
+          <span className="st-navlink" onClick={() => goTo("/requisites", () => setPage("requisites"))} style={{ textDecoration: "underline" }}>
             Реквизиты
           </span>
-          <span className="st-navlink" onClick={() => setPage("offer")} style={{ textDecoration: "underline" }}>
+          <span className="st-navlink" onClick={() => goTo("/offer", () => setPage("offer"))} style={{ textDecoration: "underline" }}>
             Публичная оферта
           </span>
         </div>
@@ -1257,7 +1344,7 @@ export default function Shop() {
           : [];
         return (
           <>
-            <div onClick={() => setDetailItem(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 40 }} />
+            <div onClick={closeDetail} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 40 }} />
             <div
               style={{
                 position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
@@ -1266,7 +1353,7 @@ export default function Shop() {
               }}
             >
               <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px 14px 0" }}>
-                <button className="st-btn" onClick={() => setDetailItem(null)} style={{ background: "transparent", color: T.dim, fontSize: 20, padding: 4 }}>{"\u2715"}</button>
+                <button className="st-btn" onClick={closeDetail} style={{ background: "transparent", color: T.dim, fontSize: 20, padding: 4 }}>{"\u2715"}</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr)", gap: 0, padding: "0 24px 28px" }}>
                 <div style={{ height: 340, marginBottom: 20, border: `1px solid ${T.border}` }}>

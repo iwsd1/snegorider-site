@@ -25,9 +25,9 @@ const supabase = supabaseEnabled ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 /* ============ Email-уведомления о заказах (через EmailJS) ============ */
 /* Вставьте сюда Service ID, Template ID и Public Key из личного кабинета emailjs.com */
-const EMAILJS_SERVICE_ID = "ВАШ_SERVICE_ID_СЮДА";
-const EMAILJS_TEMPLATE_ID = "ВАШ_TEMPLATE_ID_СЮДА";
-const EMAILJS_PUBLIC_KEY = "ВАШ_PUBLIC_KEY_СЮДА";
+const EMAILJS_SERVICE_ID = "EmailJS";
+const EMAILJS_TEMPLATE_ID = "template_quluckh";
+const EMAILJS_PUBLIC_KEY = "-2EWu_Q4uV8Yri0Ax";
 
 async function sendOrderByEmail(order) {
   if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID === "ВАШ_SERVICE_ID_СЮДА") return;

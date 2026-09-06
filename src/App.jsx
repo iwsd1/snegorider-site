@@ -387,6 +387,7 @@ function parseRoute(pathname) {
   if (parts[0] === "account") return { page: "account" };
   if (parts[0] === "requisites") return { page: "requisites" };
   if (parts[0] === "offer") return { page: "offer" };
+  if (parts[0] === "privacy") return { page: "privacy" };
   return { page: "home" };
 }
 
@@ -1148,6 +1149,84 @@ export default function Shop() {
         </div>
       )}
 
+      {page === "privacy" && (
+        /* ===== Политика конфиденциальности ===== */
+        <div style={{ maxWidth: 780, margin: "0 auto", padding: "56px 24px" }}>
+          <div style={{ color: T.orange, fontSize: 13, fontWeight: 600, marginBottom: 10 }}>SnegoRider</div>
+          <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(24px, 3vw, 32px)", lineHeight: 1.15, margin: "0 0 24px", fontWeight: 700 }}>
+            Политика конфиденциальности
+          </h1>
+          <div style={{ color: T.dim, fontSize: 14.5, lineHeight: 1.75, display: "flex", flexDirection: "column", gap: 18 }}>
+            <p>
+              Настоящая Политика определяет порядок обработки персональных данных пользователей сайта SnegoRider
+              Индивидуальным предпринимателем Мурашко Сергеем Викторовичем (ИНН 190304921123, ОГРНИП 317190100016499),
+              далее — «Оператор».
+            </p>
+
+            <div>
+              <div style={{ color: T.text, fontWeight: 600, marginBottom: 6 }}>1. Какие данные собираются</div>
+              <p>
+                1.1. При оформлении заказа: имя, номер телефона, адрес доставки или пункт самовывоза.<br />
+                1.2. При регистрации личного кабинета: адрес электронной почты, пароль (хранится в зашифрованном виде),
+                а также указанные при регистрации имя и телефон.<br />
+                1.3. Автоматически: технические данные о посещении сайта (тип браузера, IP-адрес) для целей
+                обеспечения работы сайта.
+              </p>
+            </div>
+
+            <div>
+              <div style={{ color: T.text, fontWeight: 600, marginBottom: 6 }}>2. Цели обработки данных</div>
+              <p>
+                2.1. Оформление и доставка заказов, связь с Покупателем по вопросам заказа.<br />
+                2.2. Предоставление доступа к личному кабинету и истории заказов.<br />
+                2.3. Информирование о статусе заказа и оплаты.
+              </p>
+            </div>
+
+            <div>
+              <div style={{ color: T.text, fontWeight: 600, marginBottom: 6 }}>3. Хранение и передача данных третьим лицам</div>
+              <p>
+                3.1. Данные хранятся на серверах сервисов Supabase (личный кабинет и история заказов) и передаются
+                платёжному сервису ЮKassa исключительно в объёме, необходимом для обработки оплаты.<br />
+                3.2. Оператор не передаёт персональные данные третьим лицам, за исключением случаев, прямо предусмотренных
+                законодательством РФ, либо необходимых для исполнения заказа (служба доставки).<br />
+                3.3. Оператор принимает разумные технические и организационные меры для защиты персональных данных
+                от несанкционированного доступа.
+              </p>
+            </div>
+
+            <div>
+              <div style={{ color: T.text, fontWeight: 600, marginBottom: 6 }}>4. Права пользователя</div>
+              <p>
+                4.1. Пользователь вправе в любой момент запросить удаление своих персональных данных, обратившись
+                по контактам, указанным на странице «Реквизиты».<br />
+                4.2. Пользователь вправе отозвать согласие на обработку персональных данных, направив соответствующее
+                обращение Оператору.
+              </p>
+            </div>
+
+            <div>
+              <div style={{ color: T.text, fontWeight: 600, marginBottom: 6 }}>5. Согласие на обработку данных</div>
+              <p>
+                Оформляя заказ или регистрируясь на сайте, пользователь подтверждает своё согласие на обработку
+                персональных данных на условиях настоящей Политики.
+              </p>
+            </div>
+
+            <div>
+              <div style={{ color: T.text, fontWeight: 600, marginBottom: 6 }}>6. Контакты</div>
+              <p>
+                По вопросам обработки персональных данных обращайтесь по телефону +7 950 960-38-73. Реквизиты Оператора
+                указаны на{" "}
+                <span className="st-navlink" onClick={() => goTo("/requisites", () => setPage("requisites"))} style={{ color: T.orange, textDecoration: "underline" }}>
+                  странице «Реквизиты»
+                </span>.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {page === "account" && (
         /* ===== Личный кабинет ===== */
         <div style={{ maxWidth: 780, margin: "0 auto", padding: "56px 24px" }}>
@@ -1238,6 +1317,9 @@ export default function Shop() {
           </span>
           <span className="st-navlink" onClick={() => goTo("/offer", () => setPage("offer"))} style={{ textDecoration: "underline" }}>
             Публичная оферта
+          </span>
+          <span className="st-navlink" onClick={() => goTo("/privacy", () => setPage("privacy"))} style={{ textDecoration: "underline" }}>
+            Политика конфиденциальности
           </span>
         </div>
       </footer>

@@ -3,15 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 
 /* ============ Design tokens ============ */
 const T = {
-  bg: "#14181C",
-  panel: "#1B2126",
-  panel2: "#20272E",
-  text: "#EDEFF2",
-  dim: "#9AA5AD",
-  border: "#2C343B",
-  orange: "#FF8A1E",
+  bg: "#121316",
+  panel: "#191B1F",
+  panel2: "#20232A",
+  text: "#F2F3F5",
+  dim: "#8B93A1",
+  border: "#2A2E35",
+  orange: "#FF6A00",
   orangeDim: "#B84E14",
-  ice: "#4FA8D8",
+  ice: "#3FA9E0",
 };
 
 const LOGO_URI = "data:image/jpeg;base64,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";
@@ -780,7 +780,7 @@ const PhotoPlaceholder = ({ icon, color }) => (
 
 /* ============ Product image with fallback if the source fails to load ============ */
 /* object-fit: contain + white background — вся фотография видна целиком, без обрезки; если пропорции не совпадают, по бокам/сверху добавляются белые поля */
-const ProductImage = ({ src, alt, icon, color }) => {
+const ProductImage = ({ src, alt, icon, color, zoom }) => {
   const [broken, setBroken] = useState(false);
   if (!src || broken) return <PhotoPlaceholder icon={icon} color={color} />;
   return (
@@ -788,6 +788,7 @@ const ProductImage = ({ src, alt, icon, color }) => {
       src={src}
       alt={alt}
       onError={() => setBroken(true)}
+      className={zoom ? "st-card-img" : undefined}
       style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }}
     />
   );
@@ -949,17 +950,21 @@ export default function Shop() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
-        .st-btn { cursor:pointer; border:none; font-family:'IBM Plex Sans',sans-serif; transition: background .15s ease, transform .1s ease; }
+        .st-btn { cursor:pointer; border:none; font-family:'IBM Plex Sans',sans-serif; transition: background .15s ease, transform .1s ease, border-color .15s ease, color .15s ease; }
         .st-btn:active { transform: scale(0.97); }
-        .st-card { transition: border-color .15s ease; }
-        .st-card:hover { border-color: ${T.orange} !important; }
+        .st-btn:focus-visible { outline: 2px solid ${T.orange}; outline-offset: 2px; }
+        .st-card { transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
+        .st-card:hover { border-color: ${T.orange} !important; transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
+        .st-card:hover .st-card-img { transform: scale(1.05); }
+        .st-card-img { transition: transform .35s ease; }
         .st-input { font-family:'IBM Plex Sans',sans-serif; }
-        .st-input:focus { outline: 2px solid ${T.ice}; outline-offset: 1px; }
-        .st-chip { cursor:pointer; transition: background .15s ease, color .15s ease; }
+        .st-input:focus { outline: 2px solid ${T.orange}; outline-offset: 1px; }
+        .st-chip { cursor:pointer; transition: background .15s ease, color .15s ease, border-color .15s ease; }
         .st-navlink { cursor:pointer; transition: color .15s ease; }
+        .st-navlink:hover { color: ${T.orange}; }
         @keyframes treadslide { from { background-position: 0 0; } to { background-position: 120px 0; } }
         .st-photo-strip { animation: treadslide 6s linear infinite; }
-        @media (prefers-reduced-motion: reduce) { .st-photo-strip { animation: none; } }
+        @media (prefers-reduced-motion: reduce) { .st-photo-strip { animation: none; } .st-card:hover { transform: none; } .st-card:hover .st-card-img { transform: none; } }
         @media (max-width: 820px) {
           .st-layout { grid-template-columns: 1fr !important; }
           .st-sidebar { position: static !important; order: 2; }
@@ -1049,6 +1054,12 @@ export default function Shop() {
           </span>
         </button>
       </header>
+      <div
+        style={{
+          height: 4,
+          background: `linear-gradient(90deg, ${T.orange} 0%, ${T.orange} 60%, ${T.orangeDim} 100%)`,
+        }}
+      />
 
       {page === "home" && (
         <>
@@ -1152,9 +1163,9 @@ export default function Shop() {
                   <div key={p.isGroup ? p.key : p.id} className="st-card" style={{ border: `1px solid ${T.border}`, background: T.panel, display: "flex", flexDirection: "column" }}>
                     <div
                       onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
-                      style={{ height: 200, borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}
+                      style={{ height: 200, borderBottom: `1px solid ${T.border}`, cursor: "pointer", overflow: "hidden" }}
                     >
-                      <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} />
+                      <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} zoom />
                     </div>
                     <div style={{ padding: 14, display: "flex", flexDirection: "column", flex: 1 }}>
                       <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>{p.brand} · {p.tag}</div>
@@ -1262,8 +1273,9 @@ export default function Shop() {
                       }}
                       style={{ border: `1px solid ${T.border}`, background: T.panel, cursor: "pointer", overflow: "hidden" }}
                     >
+                      <div style={{ height: 3, background: T.orange }} />
                       <div style={{ height: 150 }}>
-                        <ProductImage src={sample && sample.image} alt={entry} icon={sample ? sample.icon : "cog"} color={T.ice} />
+                        <ProductImage src={sample && sample.image} alt={entry} icon={sample ? sample.icon : "cog"} color={T.ice} zoom />
                       </div>
                       <div style={{ padding: 14 }}>
                         <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{entry}</div>
@@ -1342,9 +1354,9 @@ export default function Shop() {
                       <div key={p.isGroup ? p.key : p.id} className="st-card" style={{ border: `1px solid ${T.border}`, background: T.panel, display: "flex", flexDirection: "column" }}>
                         <div
                           onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
-                          style={{ height: 200, borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}
+                          style={{ height: 200, borderBottom: `1px solid ${T.border}`, cursor: "pointer", overflow: "hidden" }}
                         >
-                          <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} />
+                          <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} zoom />
                         </div>
                         <div style={{ padding: 14, display: "flex", flexDirection: "column", flex: 1 }}>
                           <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>{p.brand} · {p.tag}</div>

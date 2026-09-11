@@ -832,6 +832,9 @@ export default function Shop() {
   const [authMode, setAuthMode] = useState("login"); // login | signup
   const [authForm, setAuthForm] = useState({ email: "", password: "", name: "", phone: "" });
   const [authError, setAuthError] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [myOrders, setMyOrders] = useState([]);
 
   useEffect(() => {
@@ -907,13 +910,73 @@ export default function Shop() {
   };
 
   useEffect(() => {
+    const setMeta = (attr, key, content) => {
+      let el = document.querySelector(`meta[${attr}="${key}"]`);
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", content);
+    };
+    const setJsonLd = (data) => {
+      let el = document.getElementById("jsonld-product");
+      if (data) {
+        if (!el) {
+          el = document.createElement("script");
+          el.type = "application/ld+json";
+          el.id = "jsonld-product";
+          document.head.appendChild(el);
+        }
+        el.textContent = JSON.stringify(data);
+      } else if (el) {
+        el.remove();
+      }
+    };
+
+    const origin = window.location.origin;
+    const path = window.location.pathname;
+    const url = origin + path;
+
+    let title = "SnegoRider — запчасти и экипировка для снегоходов и мотоциклов";
+    let description = "Интернет-магазин запчастей и экипировки для снегоходов и мотоциклов: шлемы, куртки, перчатки, защита, запчасти для двигателя, подвески, вариатора. Доставка по России.";
+    let jsonLd = null;
+
     if (detailItem) {
-      document.title = `${detailItem.name} — SnegoRider`;
+      title = `${detailItem.name} купить — ${detailItem.brand} | SnegoRider`;
+      description = `${detailItem.name} — ${detailItem.brand}, ${detailItem.category.toLowerCase()}. Цена ${rub(detailItem.price)}. Доставка по России.`;
+      jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        name: detailItem.name,
+        image: detailItem.image ? [detailItem.image] : undefined,
+        description: detailItem.description,
+        brand: { "@type": "Brand", name: detailItem.brand },
+        offers: {
+          "@type": "Offer",
+          url,
+          priceCurrency: "RUB",
+          price: detailItem.price,
+          availability: "https://schema.org/InStock",
+        },
+      };
     } else if (page === "catalog" && catalogSelected) {
-      document.title = `${catalogSelected} — Каталог — SnegoRider`;
-    } else {
-      document.title = "SnegoRider — запчасти и экипировка";
+      title = `${catalogSelected} — купить в интернет-магазине SnegoRider`;
+      description = `${catalogSelected}: широкий выбор, доступные цены, доставка по России. Интернет-магазин SnegoRider.`;
+    } else if (page === "catalog") {
+      title = "Каталог товаров — SnegoRider";
+      description = "Полный каталог запчастей и экипировки для снегоходов и мотоциклов в интернет-магазине SnegoRider.";
     }
+
+    document.title = title;
+    setMeta("name", "description", description);
+    setMeta("property", "og:title", title);
+    setMeta("property", "og:description", description);
+    setMeta("property", "og:url", url);
+    if (detailItem && detailItem.image) setMeta("property", "og:image", detailItem.image);
+    const canonical = document.getElementById("canonical-link");
+    if (canonical) canonical.setAttribute("href", url);
+    setJsonLd(jsonLd);
   }, [detailItem, page, catalogSelected]);
 
   const handleAuthSubmit = async (e) => {
@@ -937,6 +1000,31 @@ export default function Shop() {
     if (supabaseEnabled) await supabase.auth.signOut();
     setUser(null);
     setPage("home");
+  };
+
+  const handleSaveName = async () => {
+    if (!supabaseEnabled || !user) return;
+    const { data, error } = await supabase.auth.updateUser({ data: { full_name: nameInput } });
+    if (!error && data && data.user) setUser(data.user);
+    setEditingName(false);
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file || !supabaseEnabled || !user) return;
+    setAvatarUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+      if (uploadError) { alert("Не удалось загрузить фото: " + uploadError.message); return; }
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const cacheBustedUrl = pub.publicUrl + "?t=" + Date.now();
+      const { data, error } = await supabase.auth.updateUser({ data: { avatar_url: cacheBustedUrl } });
+      if (!error && data && data.user) setUser(data.user);
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const filtered = useMemo(() => {
@@ -1053,11 +1141,15 @@ export default function Shop() {
             <span
               style={{
                 width: 30, height: 30, borderRadius: "50%", background: T.orange, color: T.bg,
-                display: "flex", alignItems: "center", justifyContent: "center",
+                display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
                 fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: 14, flexShrink: 0,
               }}
             >
-              {((user.user_metadata && user.user_metadata.full_name) || user.email).charAt(0).toUpperCase()}
+              {user.user_metadata && user.user_metadata.avatar_url ? (
+                <img src={user.user_metadata.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                ((user.user_metadata && user.user_metadata.full_name) || user.email).charAt(0).toUpperCase()
+              )}
             </span>
             {(user.user_metadata && user.user_metadata.full_name) || user.email}
           </button>
@@ -1638,15 +1730,24 @@ export default function Shop() {
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <span
+                  <label
                     style={{
                       width: 54, height: 54, borderRadius: "50%", background: T.orange, color: T.bg,
-                      display: "flex", alignItems: "center", justifyContent: "center",
+                      display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
                       fontFamily: "'Oswald',sans-serif", fontWeight: 700, fontSize: 22, flexShrink: 0,
+                      cursor: "pointer", position: "relative",
                     }}
+                    title="Изменить аватар"
                   >
-                    {((user.user_metadata && user.user_metadata.full_name) || user.email).charAt(0).toUpperCase()}
-                  </span>
+                    {avatarUploading ? (
+                      <span style={{ fontSize: 11 }}>...</span>
+                    ) : user.user_metadata && user.user_metadata.avatar_url ? (
+                      <img src={user.user_metadata.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      ((user.user_metadata && user.user_metadata.full_name) || user.email).charAt(0).toUpperCase()
+                    )}
+                    <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: "none" }} />
+                  </label>
                   <div>
                     <div style={{ color: T.orange, fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Личный кабинет</div>
                     <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 700, margin: 0 }}>
@@ -1662,7 +1763,30 @@ export default function Shop() {
               <div style={{ border: `1px solid ${T.border}`, background: T.panel, padding: 20, marginBottom: 28, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
                 <div>
                   <div style={{ fontSize: 11, color: T.dim, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Имя</div>
-                  <div style={{ fontSize: 14.5 }}>{(user.user_metadata && user.user_metadata.full_name) || "—"}</div>
+                  {editingName ? (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input
+                        className="st-input"
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        style={{ flex: 1, background: T.panel2, border: `1px solid ${T.border}`, color: T.text, padding: "6px 8px", fontSize: 14 }}
+                      />
+                      <button className="st-btn" onClick={handleSaveName} style={{ background: T.orange, color: T.bg, padding: "6px 10px", fontSize: 13, fontWeight: 600 }}>
+                        ОК
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 14.5, display: "flex", alignItems: "center", gap: 8 }}>
+                      {(user.user_metadata && user.user_metadata.full_name) || "—"}
+                      <span
+                        className="st-navlink"
+                        onClick={() => { setNameInput((user.user_metadata && user.user_metadata.full_name) || ""); setEditingName(true); }}
+                        style={{ color: T.orange, fontSize: 12, textDecoration: "underline" }}
+                      >
+                        изменить
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div style={{ fontSize: 11, color: T.dim, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Телефон</div>

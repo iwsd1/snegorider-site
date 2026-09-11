@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://snegorider-site-pcdo.vercel.app/sitemap.xml

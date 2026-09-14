@@ -1,10 +1,14 @@
-import ShopApp from "../../components/ShopApp";
+import ShopApp from "../../../../components/ShopApp";
 
-export const metadata = {
-  title: "Каталог товаров",
-  description: "Полный каталог запчастей и экипировки для снегоходов и мотоциклов в интернет-магазине SnegoRider.",
-};
+export async function generateMetadata({ params }) {
+  const name = decodeURIComponent(params.name);
+  return {
+    title: `${name} — купить`,
+    description: `${name}: широкий выбор, доступные цены, доставка по России. Интернет-магазин SnegoRider.`,
+    keywords: `${name}, купить ${name.toLowerCase()}, SnegoRider, снегоходы, мотоциклы`,
+  };
+}
 
-export default function CatalogPage() {
+export default function CategoryPage() {
   return <ShopApp />;
 }

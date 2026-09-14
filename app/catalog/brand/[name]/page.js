@@ -5,6 +5,7 @@ export async function generateMetadata({ params }) {
   return {
     title: `${name} — каталог товаров бренда`,
     description: `Товары бренда ${name}: широкий выбор, доступные цены, доставка по России. Интернет-магазин SnegoRider.`,
+    keywords: `${name}, ${name} купить, ${name} SnegoRider, запчасти ${name}, экипировка ${name}`,
   };
 }
 

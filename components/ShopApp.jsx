@@ -552,7 +552,7 @@ export default function ShopApp() {
                 {filtered.map((p) => (
                   <div key={p.isGroup ? p.key : p.id} className="st-card" style={{ border: `1px solid ${T.border}`, background: T.panel, display: "flex", flexDirection: "column" }}>
                     <div
-                      onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
+                      onClick={() => window.open(urlForItem(p), "_blank")}
                       style={{ height: 200, borderBottom: `1px solid ${T.border}`, cursor: "pointer", overflow: "hidden" }}
                     >
                       <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} zoom />
@@ -560,7 +560,7 @@ export default function ShopApp() {
                     <div style={{ padding: 14, display: "flex", flexDirection: "column", flex: 1 }}>
                       <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>{p.brand} · {p.tag}</div>
                       <div
-                        onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
+                        onClick={() => window.open(urlForItem(p), "_blank")}
                         style={{ fontSize: 14.5, lineHeight: 1.35, marginBottom: 12, flex: 1, cursor: "pointer" }}
                       >
                         {p.name}
@@ -571,7 +571,7 @@ export default function ShopApp() {
                       <div style={{ display: "flex", gap: 8 }}>
                         <button
                           className="st-btn"
-                          onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
+                          onClick={() => window.open(urlForItem(p), "_blank")}
                           style={{
                             background: "transparent",
                             border: `1px solid ${T.border}`,
@@ -586,7 +586,7 @@ export default function ShopApp() {
                         </button>
                         <button
                           className="st-btn"
-                          onClick={() => (p.isGroup ? goTo(urlForItem(p), () => setDetailItem(p)) : addToCart(p.id))}
+                          onClick={() => (p.isGroup ? window.open(urlForItem(p), "_blank") : addToCart(p.id))}
                           style={{
                             background: !p.isGroup && flash === p.id ? T.ice : T.orange,
                             color: T.bg,
@@ -743,7 +743,7 @@ export default function ShopApp() {
                     {filtered.map((p) => (
                       <div key={p.isGroup ? p.key : p.id} className="st-card" style={{ border: `1px solid ${T.border}`, background: T.panel, display: "flex", flexDirection: "column" }}>
                         <div
-                          onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
+                          onClick={() => window.open(urlForItem(p), "_blank")}
                           style={{ height: 200, borderBottom: `1px solid ${T.border}`, cursor: "pointer", overflow: "hidden" }}
                         >
                           <ProductImage src={p.image} alt={p.name} icon={p.icon} color={T.ice} zoom />
@@ -751,7 +751,7 @@ export default function ShopApp() {
                         <div style={{ padding: 14, display: "flex", flexDirection: "column", flex: 1 }}>
                           <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>{p.brand} · {p.tag}</div>
                           <div
-                            onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
+                            onClick={() => window.open(urlForItem(p), "_blank")}
                             style={{ fontSize: 14.5, lineHeight: 1.35, marginBottom: 12, flex: 1, cursor: "pointer" }}
                           >
                             {p.name}
@@ -762,14 +762,14 @@ export default function ShopApp() {
                           <div style={{ display: "flex", gap: 8 }}>
                             <button
                               className="st-btn"
-                              onClick={() => goTo(urlForItem(p), () => setDetailItem(p))}
+                              onClick={() => window.open(urlForItem(p), "_blank")}
                               style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text, padding: "7px 10px", fontSize: 13, fontWeight: 500, flex: 1 }}
                             >
                               Подробнее
                             </button>
                             <button
                               className="st-btn"
-                              onClick={() => (p.isGroup ? goTo(urlForItem(p), () => setDetailItem(p)) : addToCart(p.id))}
+                              onClick={() => (p.isGroup ? window.open(urlForItem(p), "_blank") : addToCart(p.id))}
                               style={{ background: !p.isGroup && flash === p.id ? T.ice : T.orange, color: T.bg, padding: "7px 12px", fontSize: 13, fontWeight: 600, flex: 1 }}
                             >
                               {p.isGroup ? "Выбрать размер" : flash === p.id ? "Добавлено" : "В корзину"}

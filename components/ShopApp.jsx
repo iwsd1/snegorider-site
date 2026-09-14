@@ -451,7 +451,7 @@ export default function ShopApp() {
         }}
       />
 
-      {page === "home" && (
+      {page === "home" && !detailItem && (
         <>
           {/* ===== Brand strip (banner replaced) ===== */}
           <section
@@ -608,7 +608,7 @@ export default function ShopApp() {
         </>
       )}
 
-      {page === "catalog" && (
+      {page === "catalog" && !detailItem && (
         <div style={{ maxWidth: 1180, margin: "0 auto", padding: "40px 24px" }}>
           {catalogSelected === null ? (
             <>
@@ -1203,7 +1203,7 @@ export default function ShopApp() {
         </>
       )}
 
-      {/* ===== Product detail modal ===== */}
+      {/* ===== Product detail page ===== */}
       {detailItem !== null && (() => {
         const p = detailItem;
         const activeVariant = p.isGroup ? p.sizes.find((s) => s.size === selectedSize) : null;
@@ -1223,78 +1223,70 @@ export default function ShopApp() {
             )
           : [];
         return (
-          <>
-            <div onClick={closeDetail} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 40 }} />
-            <div
-              style={{
-                position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-                width: "min(720px, 92vw)", maxHeight: "88vh", overflowY: "auto",
-                background: T.panel, border: `1px solid ${T.border}`, zIndex: 41,
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px 14px 0" }}>
-                <button className="st-btn" onClick={closeDetail} style={{ background: "transparent", color: T.dim, fontSize: 20, padding: 4 }}>{"\u2715"}</button>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr)", gap: 0, padding: "0 24px 28px" }}>
-                <div style={{ height: 340, marginBottom: 20, border: `1px solid ${T.border}` }}>
-                  <ProductImage src={displayImage} alt={p.name} icon={p.icon} color={T.ice} />
-                </div>
-                <div style={{ fontSize: 12, color: T.dim, marginBottom: 6 }}>{p.brand} · {p.category} · {p.tag}</div>
-                <h2 style={{ fontFamily: "'Oswald',sans-serif", fontSize: 24, fontWeight: 600, margin: "0 0 14px", lineHeight: 1.25 }}>{p.name}</h2>
-                <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 18 }}>{rub(displayPrice)}</div>
-
-                {p.isGroup && (
-                  <div style={{ marginBottom: 22 }}>
-                    <div style={{ fontSize: 12, color: T.dim, marginBottom: 8 }}>Размер</div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      {sizesToShow.map((size) => {
-                        const variant = p.sizes.find((s) => s.size === size);
-                        const available = Boolean(variant);
-                        const active = selectedSize === size;
-                        return (
-                          <button
-                            key={size}
-                            disabled={!available}
-                            onClick={() => available && setSelectedSize(size)}
-                            className="st-btn"
-                            style={{
-                              width: 46, height: 40,
-                              background: active ? T.orange : "transparent",
-                              color: !available ? T.border : active ? T.bg : T.text,
-                              border: `1px solid ${active ? T.orange : T.border}`,
-                              fontSize: 13, fontWeight: 600,
-                              cursor: available ? "pointer" : "not-allowed",
-                              opacity: available ? 1 : 0.4,
-                            }}
-                          >
-                            {size}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {!activeVariant && (
-                      <div style={{ color: T.dim, fontSize: 12.5, marginTop: 8 }}>Выберите размер, чтобы добавить в корзину.</div>
-                    )}
-                  </div>
-                )}
-
-                <p style={{ color: T.dim, fontSize: 14.5, lineHeight: 1.6, marginBottom: 22 }}>{p.description}</p>
-                <button
-                  className="st-btn"
-                  disabled={p.isGroup && !cartTargetId}
-                  onClick={() => { if (cartTargetId) addToCart(cartTargetId); }}
-                  style={{
-                    background: cartTargetId && flash === cartTargetId ? T.ice : T.orange,
-                    color: T.bg, padding: "12px 20px", fontWeight: 600, fontSize: 14,
-                    opacity: p.isGroup && !cartTargetId ? 0.5 : 1,
-                    cursor: p.isGroup && !cartTargetId ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {cartTargetId && flash === cartTargetId ? "Добавлено" : "В корзину"}
-                </button>
-              </div>
+          <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px 60px" }}>
+            <div className="st-navlink" onClick={closeDetail} style={{ color: T.dim, fontSize: 14, marginBottom: 20, display: "inline-block" }}>
+              {"\u2190"} Назад
             </div>
-          </>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr)", gap: 0 }}>
+              <div style={{ height: 380, marginBottom: 20, border: `1px solid ${T.border}` }}>
+                <ProductImage src={displayImage} alt={p.name} icon={p.icon} color={T.ice} />
+              </div>
+              <div style={{ fontSize: 12, color: T.dim, marginBottom: 6 }}>{p.brand} · {p.category} · {p.tag}</div>
+              <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: "clamp(22px, 3vw, 28px)", fontWeight: 600, margin: "0 0 14px", lineHeight: 1.25 }}>{p.name}</h1>
+              <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 18 }}>{rub(displayPrice)}</div>
+
+              {p.isGroup && (
+                <div style={{ marginBottom: 22 }}>
+                  <div style={{ fontSize: 12, color: T.dim, marginBottom: 8 }}>Размер</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {sizesToShow.map((size) => {
+                      const variant = p.sizes.find((s) => s.size === size);
+                      const available = Boolean(variant);
+                      const active = selectedSize === size;
+                      return (
+                        <button
+                          key={size}
+                          disabled={!available}
+                          onClick={() => available && setSelectedSize(size)}
+                          className="st-btn"
+                          style={{
+                            width: 46, height: 40,
+                            background: active ? T.orange : "transparent",
+                            color: !available ? T.border : active ? T.bg : T.text,
+                            border: `1px solid ${active ? T.orange : T.border}`,
+                            fontSize: 13, fontWeight: 600,
+                            cursor: available ? "pointer" : "not-allowed",
+                            opacity: available ? 1 : 0.4,
+                          }}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!activeVariant && (
+                    <div style={{ color: T.dim, fontSize: 12.5, marginTop: 8 }}>Выберите размер, чтобы добавить в корзину.</div>
+                  )}
+                </div>
+              )}
+
+              <p style={{ color: T.dim, fontSize: 14.5, lineHeight: 1.6, marginBottom: 22 }}>{p.description}</p>
+              <button
+                className="st-btn"
+                disabled={p.isGroup && !cartTargetId}
+                onClick={() => { if (cartTargetId) addToCart(cartTargetId); }}
+                style={{
+                  background: cartTargetId && flash === cartTargetId ? T.ice : T.orange,
+                  color: T.bg, padding: "12px 20px", fontWeight: 600, fontSize: 14,
+                  opacity: p.isGroup && !cartTargetId ? 0.5 : 1,
+                  cursor: p.isGroup && !cartTargetId ? "not-allowed" : "pointer",
+                  width: "fit-content",
+                }}
+              >
+                {cartTargetId && flash === cartTargetId ? "Добавлено" : "В корзину"}
+              </button>
+            </div>
+          </div>
         );
       })()}
 
